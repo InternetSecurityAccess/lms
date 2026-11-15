@@ -1,0 +1,41 @@
+<%
+  const _items = (typeof items !== 'undefined' && Array.isArray(items)) ? items : [];
+  const _empty = (typeof empty !== 'undefined') ? empty : '—';
+  const _removeAction = (typeof removeAction !== 'undefined') ? removeAction : false;
+  const _markedForRemoval = (typeof markedForRemoval !== 'undefined') ? markedForRemoval : new Set();
+%>
+<% if (_items.length === 0) { %>
+  <span class="cell-secondary"><%= _empty %></span>
+<% } else { %>
+  <div class="file-list">
+    <% _items.forEach((f) => {
+      const isMarked = _markedForRemoval.has(f.id);
+    %>
+      <div class="file-row <%= isMarked ? 'is-marked' : '' %>" data-file-id="<%= f.id %>">
+        <div class="file-row-info">
+          <div class="file-row-name"><%= f.filename %></div>
+          <div class="cell-secondary"><%= (Number(f.filesize) / 1024).toFixed(1) %> КБ</div>
+        </div>
+        <% if (canPreview(f.filename)) { %>
+          <a href="/file/attachment/<%= f.id %>"
+             class="btn btn-ghost btn-sm"
+             data-file-preview
+             data-file-name="<%= f.filename %>"
+             data-view-url="/file/attachment/<%= f.id %>?inline=1"
+             data-download-url="/file/attachment/<%= f.id %>">Открыть</a>
+        <% } %>
+        <a href="/file/attachment/<%= f.id %>" class="btn btn-secondary btn-sm">Скачать</a>
+        <% if (_removeAction) { %>
+          <button type="button"
+                  class="btn btn-sm js-toggle-remove <%= isMarked ? 'btn-ghost' : 'btn-danger-soft' %>"
+                  data-file-id="<%= f.id %>"
+                  data-marked="<%= isMarked ? '1' : '0' %>">
+            <%= isMarked ? 'Отменить' : 'Удалить' %>
+          </button>
+          <input type="hidden" name="remove_file_ids" value="<%= f.id %>"
+                 data-remove-input="<%= f.id %>" <%= isMarked ? '' : 'disabled' %>>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+<% } %>

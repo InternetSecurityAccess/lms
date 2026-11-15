@@ -1,0 +1,93 @@
+<%- include('../../layout/header', { title: 'Заявки на регистрацию' }) %>
+<div class="content-wrapper">
+  <div class="top-bar">
+    <h1 class="top-bar-title">Заявки на регистрацию</h1>
+    <a href="/admin" class="btn btn-ghost">← В админку</a>
+  </div>
+  <div class="info-box info-box-blue info-box-how">
+    Здесь появляются студенты, зарегистрировавшиеся самостоятельно.
+    Пока заявка не подтверждена, вход в систему закрыт, доступна только страница
+    ожидания и поддержка.
+  </div>
+  <% if (!rows.length) { %>
+    <section class="card">
+      <div class="empty-state">Заявок нет.</div>
+    </section>
+  <% } else { %>
+    <section class="card">
+      <%- include('../../shared/ui/bulk-toolbar', {
+        entity: 'approvals',
+        scope: 'approvals',
+        actions: [
+          {
+            href: '/admin/bulk-approve',
+            label: 'Подтвердить выбранные',
+            class: 'btn-success btn-sm',
+            method: 'POST',
+            confirm: 'Подтвердить выбранные заявки? Студенты получат полный доступ.',
+            okText: 'Подтвердить',
+            okClass: 'success'
+          },
+          {
+            href: '/admin/bulk-reject',
+            label: 'Отклонить выбранные',
+            class: 'btn-danger btn-sm',
+            method: 'POST',
+            confirm: 'Отклонить выбранные заявки? Студенты увидят причину и не смогут войти.',
+            okText: 'Отклонить',
+            okClass: 'danger',
+            needsReason: true
+          }
+        ]
+      }) %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="bulk-th"><input type="checkbox" data-bulk-all data-bulk-scope="approvals" aria-label="Выбрать всех"></th>
+              <th>Студент</th>
+              <th>Логин</th>
+              <th>Группа</th>
+              <th>Создан</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => { %>
+              <tr>
+                <td class="bulk-td"><input type="checkbox" data-bulk-checkbox data-bulk-scope="approvals" value="<%= r.id %>" aria-label="Выбрать заявку <%= r.name %>"></td>
+                <td><%= r.name %></td>
+                <td><%= r.login %></td>
+                <td><%= r.group_name %></td>
+                <td class="cell-secondary"><%= formatDate(r.created_at, true) %></td>
+                <td>
+                  <div class="actions-row">
+                    <form method="POST" action="/admin/approvals/<%= r.id %>/approve" class="inline-form"
+                      data-confirm="Подтвердить регистрацию?"
+                      data-confirm-ok-text="Подтвердить"
+                      data-confirm-ok-class="success">
+                      <button type="submit" class="btn btn-success btn-sm">Подтвердить</button>
+                    </form>
+                    <form method="POST" action="/admin/approvals/<%= r.id %>/reject" class="inline-form"
+                      data-confirm="Отклонить регистрацию?"
+                      data-confirm-ok-text="Отклонить"
+                      data-confirm-ok-class="danger">
+                      <input type="text" name="reason" required maxlength="500" placeholder="Причина"
+                        class="inline-input inline-input-180">
+                      <button type="submit" class="btn btn-danger btn-sm">Отклонить</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/approvals', {}, { page: p > 1 ? p : '' })
+      }) %>
+    </section>
+  <% } %>
+</div>
+<%- include('../../layout/footer') %>

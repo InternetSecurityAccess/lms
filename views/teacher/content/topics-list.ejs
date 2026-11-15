@@ -1,0 +1,127 @@
+<%- include('../../layout/header', { title: 'Задания' }) %>
+<%
+  const basePath = '/assignments';
+  const baseQuery = { q: q || '', subject: subjectFilter || '', afilter: afilter || 'all' };
+  const currentSubject = subjectFilter ? subjects.find((s) => s.id === subjectFilter) : null;
+  const createHref = subjectsCount === 0 ? '/subjects/new'
+    : singleSubjectId ? `/subjects/${singleSubjectId}/topics/new?assignment_mode=internal`
+    : '/subjects';
+  const createLabel = subjectsCount === 0 ? '+ Создать предмет' : '+ Создать задание';
+  const titleHtml = 'Задания' + (currentSubject
+    ? ` <span class="cell-secondary page-subtitle">— ${currentSubject.title}</span>`
+    : '');
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    titleHtml,
+    actions: [{ href: createHref, label: createLabel, class: 'btn-primary' }]
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Здесь собраны все темы с внутренним заданием (приём работ в системе).
+    Темы-лекции — на странице предмета в разделе «Темы».
+  </div>
+  <%- include('../../shared/ui/filter-chips', {
+    items: [
+      { href: buildUrl(basePath, baseQuery, { afilter: 'all' }),     label: `Все (${counts.all})`,              active: afilter === 'all' },
+      { href: buildUrl(basePath, baseQuery, { afilter: 'pending' }), label: `На проверке (${counts.pending})`, active: afilter === 'pending' },
+      { href: buildUrl(basePath, baseQuery, { afilter: 'draft' }),   label: `Черновики (${counts.draft})`,     active: afilter === 'draft' }
+    ]
+  }) %>
+  <form method="GET" action="<%= basePath %>" class="inline-add-form">
+    <% if (afilter !== 'all') { %><input type="hidden" name="afilter" value="<%= afilter %>"><% } %>
+    <select name="subject">
+      <option value="">Все предметы</option>
+      <% subjects.forEach((s) => { %>
+        <option value="<%= s.id %>" <%= String(subjectFilter) === String(s.id) ? 'selected' : '' %>><%= s.title %></option>
+      <% }) %>
+    </select>
+    <input type="search" name="q" value="<%= q %>" maxlength="100"
+      placeholder="Поиск по теме, описанию или предмету" class="search-input">
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q || subjectFilter) { %>
+      <a href="<%= buildUrl(basePath, baseQuery, { q: '', subject: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <% if (topics.length === 0) { %>
+    <%- include('../../shared/ui/empty-state', {
+      primary: (q || subjectFilter) ? 'Ничего не найдено по текущим фильтрам.'
+        : afilter === 'pending' ? 'Нет работ на проверке.'
+        : afilter === 'draft' ? 'Черновиков нет.'
+        : 'Тем с заданиями пока нет.',
+      action: (q || subjectFilter)
+        ? { href: buildUrl(basePath, baseQuery, { q: '', subject: '', afilter: 'all' }), label: 'Сбросить фильтры' }
+        : subjectsCount === 0
+          ? { href: '/subjects/new', label: '+ Создать предмет', class: 'btn-primary' }
+          : { href: createHref, label: createLabel, class: 'btn-primary' }
+    }) %>
+  <% } else { %>
+    <section class="card">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Тема</th>
+              <th>Предмет</th>
+              <th>Задание</th>
+              <th>Работ</th>
+              <th>На проверке</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topics.forEach((t) => { %>
+              <tr>
+                <td>
+                  <a href="/subjects/<%= t.subject_id %>/topics/<%= t.id %>/edit"
+                     class="cell-primary" style="text-decoration:none; display:block;">
+                    <strong><%= t.title %></strong>
+                  </a>
+                  <% if (t.description) { %>
+                    <% const plain = String(t.description).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); %>
+                    <div class="cell-secondary"><%= plain.slice(0, 80) %><%= plain.length > 80 ? '…' : '' %></div>
+                  <% } %>
+                </td>
+                <td class="cell-secondary">
+                  <a href="/subjects/<%= t.subject_id %>/assignments"><%= t.subject_title %></a>
+                </td>
+                <td>
+                  <% if (t.assignment_id) { %>
+                    <div class="cell-primary"><%= t.assignment_title %></div>
+                    <% if (t.assignment_deadline) { %>
+                      <div class="cell-secondary">до <%= formatDate(t.assignment_deadline, true) %></div>
+                    <% } %>
+                    <% if (t.assignment_status === 'finished') { %>
+                      <span class="status-badge status-muted">завершено</span>
+                    <% } %>
+                  <% } %>
+                </td>
+                <td><%= t.assignment_id ? t.works_count : '—' %></td>
+                <td>
+                  <% if (t.pending_count > 0) { %>
+                    <span class="status-badge status-pending"><%= t.pending_count %></span>
+                  <% } else { %>—<% } %>
+                </td>
+                <td>
+                  <span class="status-badge <%= t.status === 'published' ? 'status-success' : 'status-warning' %>">
+                    <%= t.status === 'published' ? 'Опубликовано' : 'Черновик' %>
+                  </span>
+                </td>
+                <td>
+                  <% if (t.assignment_id) { %>
+                    <a href="/subjects/<%= t.subject_id %>/assignments/<%= t.assignment_id %>"
+                       class="btn btn-primary btn-sm">Открыть</a>
+                  <% } else { %>
+                    <a href="/subjects/<%= t.subject_id %>/topics/<%= t.id %>"
+                       class="btn btn-primary btn-sm">Открыть</a>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+</div>
+<%- include('../../layout/footer') %>

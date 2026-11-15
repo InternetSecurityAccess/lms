@@ -1,0 +1,26 @@
+<%
+  const _messages    = (typeof messages    !== 'undefined' && Array.isArray(messages)) ? messages : [];
+  const _viewerRole  = (typeof viewerRole  !== 'undefined') ? viewerRole  : null;
+  const _viewerId    = (typeof viewerId    !== 'undefined') ? viewerId    : null;
+  const _basePath    = (typeof basePath    !== 'undefined') ? basePath    : '';
+  const _canDeleteAll = (typeof canDeleteAll !== 'undefined') ? canDeleteAll : false;
+  const _fileUrl     = (typeof fileUrl     !== 'undefined') ? fileUrl     : null;
+  const _emptyText   = (typeof emptyText   !== 'undefined') ? emptyText   : 'Сообщений пока нет. Напишите первым.';
+  const _id = (typeof id !== 'undefined') ? id : 'messages';
+%>
+<div id="<%= _id %>" class="messages-list" aria-live="polite">
+  <% if (_messages.length === 0) { %>
+    <div class="empty-state"><%= _emptyText %></div>
+  <% } else { %>
+    <% _messages.forEach((m) => { %>
+      <%- include('./message', {
+        m,
+        viewerRole: _viewerRole,
+        viewerId: _viewerId,
+        canDeleteAll: _canDeleteAll,
+        deleteAction: _basePath ? `${_basePath}/messages/${m.id}/delete` : null,
+        fileUrl: _fileUrl,
+      }) %>
+    <% }) %>
+  <% } %>
+</div>

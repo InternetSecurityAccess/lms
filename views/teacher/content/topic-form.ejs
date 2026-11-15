@@ -1,0 +1,552 @@
+<%- include('../../layout/header', {
+  title: mode === 'create' ? 'Новая тема' : 'Редактировать тему',
+  headExtra
+}) %>
+<%
+// ── Quiz-локалы приходят только из routes/teacher/quiz.js.
+//    Когда форму рендерит content.js (лекция/задание) — берём дефолты.
+const _quizData     = (typeof quizData !== 'undefined' && quizData) ? quizData : null;
+const _quizAttempts = (typeof quizAttemptsCount !== 'undefined') ? (Number(quizAttemptsCount) || 0) : 0;
+const _quizErrors   = (typeof quizErrors !== 'undefined' && Array.isArray(quizErrors)) ? quizErrors : [];
+const _hasQuiz      = !!(topic && topic.quiz_id);
+
+const hasInternal = !!(topic && topic.assignment_id);
+
+let initialMode;
+if (_hasQuiz) {
+  initialMode = 'quiz';
+} else if (hasInternal) {
+  initialMode = 'internal';
+} else if (typeof defaultAssignmentMode !== 'undefined' && defaultAssignmentMode) {
+  initialMode = defaultAssignmentMode;
+} else if (mode === 'edit' && !topic.homework_text && !topic.assignment_url) {
+  initialMode = 'none_no_hw';
+} else {
+  initialMode = 'none_with_hw';
+}
+
+const isQuiz      = initialMode === 'quiz';
+const isInternal  = initialMode === 'internal';
+const isNoHomework = (initialMode === 'none_no_hw' || isInternal || isQuiz);
+
+const initData = { subjectId: subject.id, initialHtml: initialHtml || '' };
+const isTopicFinished = (mode === 'edit' && topic.status === 'finished');
+
+// Настройки теста: сохранённые → дефолты.
+const qz = _quizData || {};
+const qTitle       = (qz.title != null && qz.title !== '') ? qz.title : (topic.title || '');
+const qDescription = qz.description || '';
+const qPass        = (qz.pass_percent != null) ? qz.pass_percent : 60;
+const qAttempts    = (qz.max_attempts != null) ? qz.max_attempts : 1;
+const qTime        = (qz.time_limit_minutes != null) ? qz.time_limit_minutes : '';
+const qShowCorrect = !!qz.show_correct;
+
+const formBase = '/subjects/' + subject.id + '/topics' + (mode === 'edit' ? '/' + topic.id : '');
+const formAction = formBase + ((isQuiz || _hasQuiz) ? '?quiz=1' : '');
+%>
+<div class="content-wrapper topic-form">
+
+<%- include('../../shared/page-top', {
+  title: mode === 'create' ? 'Новая тема' : 'Редактировать тему',
+  subtitle: subject.title,
+  back: { href: `/subjects/${subject.id}/topics` },
+  flashes: [
+    ...(mode === 'create' && query.added ? [{ type: 'green', text: '<strong>Тема создана.</strong> Можно добавить следующую — поля уже очищены.' }] : []),
+    ...(query.saved ? [{ type: 'green', text: '<strong>Изменения сохранены.</strong>' }] : []),
+    ...(query.created ? [{ type: 'green', text: '<strong>Тема создана.</strong>' }] : []),
+    ...(query.updated ? [{ type: 'green', text: '<strong>Изменения сохранены.</strong>' }] : []),
+    ...(query.locked ? [{ type: 'yellow', text: '<strong>У теста есть попытки студентов.</strong> Сохранены только настройки: вопросы, варианты и картинки изменить уже нельзя.' }] : [])
+  ]
+}) %>
+
+<div class="info-box info-box-blue info-box-how">
+  <strong>Тип:</strong><br>
+  • <strong>Лекция с ДЗ</strong> — материал + поля домашнего задания.<br>
+  • <strong>Лекция без ДЗ</strong> — только материал.<br>
+  • <strong>Задание</strong> — приём работ в системе: файлы, срок сдачи, проверка.<br>
+  • <strong>Тестирование</strong> — автоматическая проверка: вопросы, варианты, баллы, попытки.<br>
+  <strong>Доступно с</strong> — отложенная публикация. Пусто — доступно сразу.<br>
+  <strong>Черновик</strong> — виден только вам. <strong>Опубликовано</strong> — видно студентам
+  привязанных групп. Для публикации теста у каждого вопроса должны быть отмечены правильные ответы.
+</div>
+
+<section class="card">
+  <% if (error) { %><div class="info-box info-box-red"><%= error %></div><% } %>
+
+  <% if (_quizErrors.length > 0) { %>
+    <div class="info-box info-box-red">
+      <strong>Тест не готов:</strong>
+      <ul class="hint-list mt-1">
+        <% _quizErrors.forEach(function (e) { %><li><%= e %></li><% }) %>
+      </ul>
+    </div>
+  <% } %>
+
+  <form id="topicForm" <%= mode === 'edit' ? 'data-unsaved-guard' : '' %>
+        action="<%= formAction %>"
+        method="POST" enctype="multipart/form-data">
+    <div class="form-grid">
+
+      <label for="t-assignment-mode" class="form-label">Тип</label>
+      <div class="field">
+        <select id="t-assignment-mode" name="assignment_mode">
+          <option value="none_with_hw" <%= initialMode === 'none_with_hw' ? 'selected' : '' %>>Лекция с ДЗ</option>
+          <option value="none_no_hw"   <%= initialMode === 'none_no_hw'   ? 'selected' : '' %>>Лекция без ДЗ</option>
+          <option value="internal"     <%= isInternal ? 'selected' : '' %>>Задание</option>
+          <option value="quiz"         <%= isQuiz ? 'selected' : '' %>>Тестирование</option>
+        </select>
+        <% if (_hasQuiz && _quizAttempts > 0) { %>
+          <div class="hint text-warning">
+            У теста есть попытки студентов (<%= _quizAttempts %>). Сменить тип темы нельзя.
+          </div>
+        <% } %>
+      </div>
+
+      <label for="t-title" class="form-label">
+        <span data-title-label="none" <%= (isInternal) ? 'hidden' : '' %>>Тема занятия</span>
+        <span data-title-label="internal" <%= (isInternal) ? '' : 'hidden' %>>Название темы</span>
+      </label>
+      <div class="field">
+        <input type="text" id="t-title" name="title" maxlength="200"
+               value="<%= topic.title || '' %>"
+               placeholder="Например: Лекция 1. Введение">
+      </div>
+
+      <label for="t-available-from" class="form-label">Доступно с</label>
+      <div class="field">
+        <input type="datetime-local" id="t-available-from" name="available_from"
+               value="<%= availableFromInput || '' %>">
+        <div class="hint">
+          Время в часовом поясе колледжа (<%= college.TZ %>).
+          Пусто — доступно сразу после публикации.
+        </div>
+      </div>
+
+      <div data-lecture-quill <%= (isInternal || isQuiz) ? 'hidden' : '' %>>
+        <label class="form-label" id="editor-label">Текст занятия</label>
+        <div class="field">
+          <div class="topic-editor-shell" id="editorShell">
+            <div id="editor"></div>
+            <textarea id="editorFallback" hidden></textarea>
+          </div>
+          <input type="hidden" name="description" id="descriptionInput" value="">
+          <div class="hint">
+            Вставляйте текст из Word через <kbd>Ctrl</kbd>+<kbd>V</kbd>.
+            <strong>Картинку</strong> — из буфера или кнопкой 🖼.
+          </div>
+        </div>
+      </div>
+
+      <label class="form-label">Материалы</label>
+      <div class="field">
+        <% if (mode === 'edit' && existingFiles && existingFiles.length > 0) { %>
+          <div class="hint mb-1">Текущие файлы — отметьте, чтобы удалить:</div>
+          <%- include('../../shared/ui/attachments-list', {
+            items: existingFiles, empty: '—', removeAction: true
+          }) %>
+          <div class="hint mt-1">Удаление сработает после сохранения.</div>
+        <% } %>
+        <input type="file" id="t-files" name="files" multiple
+               accept="<%= ACCEPT_UPLOAD %>"
+               data-max-size-mb="<%= MAX_FILE_SIZE_MB %>"
+               data-max-files="<%= MAX_FILES_PER_UPLOAD %>">
+        <div class="hint"><%= HINT_UPLOAD %> Прикрепляются к теме в любом режиме.</div>
+      </div>
+
+      <div data-source-url-panel <%= (isInternal || isQuiz) ? 'hidden' : '' %>>
+        <label for="t-content-url" class="form-label">Ссылка на источник</label>
+        <div class="field">
+          <input type="url" id="t-content-url" name="content_url" maxlength="1000"
+                 value="<%= topic.content_url || '' %>" placeholder="https://..."
+                 <%= (isInternal || isQuiz) ? 'disabled' : '' %>>
+        </div>
+      </div>
+
+      <div data-homework-panel <%= isNoHomework ? 'hidden' : '' %>>
+        <label for="t-homework-text" class="form-label">Домашнее задание</label>
+        <div class="field">
+          <textarea id="t-homework-text" name="homework_text" maxlength="2000" rows="4"
+                    placeholder="Например: сделать конспект, прочитать параграф 3.2"
+                    <%= isNoHomework ? 'disabled' : '' %>><%= topic.homework_text || '' %></textarea>
+        </div>
+        <label for="t-homework-url" class="form-label">Ссылка на ДЗ</label>
+        <div class="field">
+          <input type="url" id="t-homework-url" name="assignment_url" maxlength="1000"
+                 value="<%= topic.assignment_url || '' %>"
+                 placeholder="https://forms.example.com/hw1"
+                 <%= isNoHomework ? 'disabled' : '' %>>
+        </div>
+      </div>
+
+      <div data-assignment-panel <%= isInternal ? '' : 'hidden' %>>
+        <label for="t-assignment-title" class="form-label">Название задания</label>
+        <div class="field">
+          <input type="text" id="t-assignment-title" name="assignment_title" maxlength="200"
+                 value="<%= (assignment && assignment.title) || topic.title || '' %>"
+                 placeholder="Например: Практическая работа №1"
+                 <%= isInternal ? '' : 'disabled' %>>
+        </div>
+        <label for="t-assignment-desc" class="form-label">Описание задания</label>
+        <div class="field">
+          <textarea id="t-assignment-desc" name="assignment_description" maxlength="2000" rows="3"
+                    placeholder="Требования"
+                    <%= isInternal ? '' : 'disabled' %>><%= (assignment && assignment.description) || '' %></textarea>
+        </div>
+        <label for="t-assignment-deadline" class="form-label">Дедлайн</label>
+        <div class="field">
+          <input type="datetime-local" id="t-assignment-deadline" name="assignment_deadline"
+                 value="<%= assignmentDeadlineInput || '' %>"
+                 <%= isInternal ? '' : 'disabled' %>>
+          <div class="hint">Время в часовом поясе колледжа (<%= college.TZ %>).</div>
+        </div>
+        <% if (mode === 'edit' && hasInternal) { %>
+          <label class="form-label">Задание в системе</label>
+          <div class="field">
+            <div class="info-box info-box-blue">
+              Задание «<strong><%= assignment ? assignment.title : '' %></strong>» связано с темой.
+              <a href="/subjects/<%= subject.id %>/assignments/<%= topic.assignment_id %>">Открыть задание →</a>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <%# ═══════════ КОНСТРУКТОР ТЕСТА ═══════════ %>
+      <div data-quiz-panel class="quiz-panel" <%= isQuiz ? '' : 'hidden' %>>
+        <div id="quiz-builder">
+          <input type="hidden" name="quiz_json" value="">
+
+          <div class="card-header">
+            <h2>Настройки теста</h2>
+            <% if (_quizAttempts > 0) { %>
+              <span class="status-badge status-warning">попыток: <%= _quizAttempts %></span>
+            <% } %>
+          </div>
+
+          <% if (_quizAttempts > 0) { %>
+            <div class="info-box info-box-yellow">
+              Студенты уже проходили тест. Вопросы, варианты и картинки заблокированы —
+              можно менять только название, описание, порог, лимиты и показ ответов.
+            </div>
+          <% } %>
+
+          <div class="quiz-settings">
+            <label class="quiz-field">
+              <span>Название теста</span>
+              <input type="text" name="quiz_title" maxlength="200"
+                     value="<%= qTitle %>" placeholder="По умолчанию — название темы">
+            </label>
+
+            <label class="quiz-field">
+              <span>Описание / инструкция для студента</span>
+              <textarea name="quiz_description" rows="3" maxlength="5000"
+                        placeholder="Показывается на странице теста перед стартом"><%= qDescription %></textarea>
+            </label>
+
+            <div class="quiz-settings-row">
+              <label class="quiz-field quiz-field-sm">
+                <span>Проходной балл, %</span>
+                <input type="number" name="quiz_pass_percent" min="0" max="100" step="1"
+                       value="<%= qPass %>">
+              </label>
+              <label class="quiz-field quiz-field-sm">
+                <span>Лимит попыток</span>
+                <input type="number" name="quiz_max_attempts" min="0" step="1"
+                       value="<%= qAttempts %>">
+                <small class="hint">0 — без ограничений</small>
+              </label>
+              <label class="quiz-field quiz-field-sm">
+                <span>Время, мин</span>
+                <input type="number" name="quiz_time_limit" min="1" step="1"
+                       value="<%= qTime %>" placeholder="пусто">
+                <small class="hint">пусто — без лимита</small>
+              </label>
+            </div>
+
+            <label class="checkbox-row">
+              <input type="checkbox" name="quiz_show_correct" value="1" <%= qShowCorrect ? 'checked' : '' %>>
+              <span>Показывать правильные ответы после завершения</span>
+            </label>
+
+            <div class="hint">
+              Перемешивание включено всегда: вопросы, варианты и элементы порядка
+              перемешиваются у каждого студента.
+            </div>
+          </div>
+
+          <div class="card-header mt-3"><h2>Вопросы</h2></div>
+
+          <div class="quiz-toolbar">
+            <button type="button" class="btn btn-primary btn-sm" data-action="add-question">+ Вопрос</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="import">Импорт из текста</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="expand-all">Развернуть все</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="collapse-all">Свернуть все</button>
+          </div>
+
+          <div class="quiz-accordion" id="quiz-questions"></div>
+        </div>
+      </div>
+
+      <label for="t-status" class="form-label">Статус</label>
+      <div class="field">
+        <% if (isTopicFinished) { %>
+          <div class="info-box info-box-yellow">
+            <strong>Тема завершена администратором.</strong> Статус изменить нельзя.
+          </div>
+          <input type="hidden" name="status" value="finished">
+        <% } else { %>
+          <select id="t-status" name="status">
+            <option value="published" <%= topic.status === 'published' ? 'selected' : '' %>>Опубликовано</option>
+            <option value="draft"     <%= topic.status === 'draft' ? 'selected' : '' %>>Черновик</option>
+          </select>
+          <div class="hint">
+            <strong>Черновик</strong> — виден только вам. <strong>Опубликовано</strong> — видно студентам.
+            Завершить тему может только администратор.
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="topic-save-bar">
+      <% if (mode === 'create') { %>
+        <button type="submit" name="_action" value="open" class="btn btn-success">Создать и открыть</button>
+        <button type="submit" name="_action" value="again" class="btn btn-success">Создать и добавить ещё</button>
+      <% } else { %>
+        <button type="submit" name="_action" value="open" class="btn btn-success">Сохранить изменения</button>
+        <button type="submit" name="_action" value="again" class="btn btn-success">Сохранить и добавить ещё</button>
+        <% if (_hasQuiz) { %>
+          <a href="/teacher/quiz/<%= topic.id %>/results" class="btn btn-secondary">Результаты теста</a>
+        <% } %>
+      <% } %>
+      <a href="/subjects/<%= subject.id %>/topics" class="btn btn-ghost">Отмена</a>
+    </div>
+  </form>
+</section>
+</div>
+
+<%# ═══════════ МОДАЛКА ИМПОРТА ═══════════ %>
+<div id="quiz-import-dialog" class="quiz-modal-backdrop" hidden>
+  <div class="quiz-modal">
+    <h3>Импорт вопросов из текста</h3>
+    <div class="quiz-modal-row">
+      <textarea placeholder="Вопрос 1: Текст вопроса&#10;1. Вариант&#10;2. Вариант&#10;3. Вариант&#10;&#10;Вопрос 2: ..."></textarea>
+      <div class="quiz-modal-hint">
+        Вопросы добавятся в конец списка с типом «Один вариант» и 1 баллом.
+        Правильный ответ можно отметить звёздочкой: <code>2. *вариант</code>. Без звёздочки правильный ответ нужно выбрать вручную.
+      </div>
+    </div>
+    <div class="quiz-errors" hidden></div>
+    <details>
+      <summary>Шаблон промпта для ИИ</summary>
+      <pre class="quiz-template-text">Сгенерируй 10 вопросов по теме «НАЗВАНИЕ ТЕМЫ» для студентов колледжа.
+
+Формат строго такой, без markdown, без нумерации вопросов жирным:
+
+Вопрос 1: текст вопроса
+1. вариант ответа
+2. *правильный вариант ответа
+3. вариант ответа
+4. вариант ответа
+
+Вопрос 2: текст вопроса
+1. вариант ответа
+...
+
+Правила:
+- у каждого вопроса ровно 4 варианта ответа;
+- ровно один правильный вариант на вопрос;
+- правильный вариант помечай звёздочкой * в начале текста варианта, сразу после номера и точки: «2. *текст»;
+- не добавляй пояснений, заголовков и пустых строк внутри вопроса;
+- текст вопроса — одна строка.</pre>
+      <button type="button" class="btn btn-secondary btn-sm mt-2" data-action="copy-template">Скопировать шаблон</button>
+    </details>
+    <div class="quiz-modal-actions">
+      <button type="button" class="btn btn-ghost" data-action="cancel-import">Отмена</button>
+      <button type="button" class="btn btn-primary" data-action="confirm-import">Импортировать</button>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="/css/quiz.css">
+
+<style>
+  .topic-form [data-lecture-quill],
+  .topic-form [data-source-url-panel],
+  .topic-form [data-homework-panel],
+  .topic-form [data-assignment-panel] { display: contents; }
+  .topic-form [data-lecture-quill][hidden],
+  .topic-form [data-source-url-panel][hidden],
+  .topic-form [data-homework-panel][hidden],
+  .topic-form [data-assignment-panel][hidden] { display: none; }
+
+  .topic-form .quiz-panel { grid-column: 1 / -1; }
+  .topic-form .quiz-panel[hidden] { display: none; }
+  .topic-form .quiz-settings { display: flex; flex-direction: column; gap: var(--space-3); }
+  .topic-form .quiz-settings-row { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+  .topic-form .quiz-field { display: flex; flex-direction: column; gap: var(--space-1); }
+  .topic-form .quiz-field > span { font-size: var(--fs-sm); color: var(--text-2); }
+  .topic-form .quiz-field-sm { flex: 0 0 10rem; }
+  .topic-form .topic-save-bar {
+    display: flex; gap: var(--space-2); flex-wrap: wrap;
+    margin-top: var(--space-4); padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+  }
+  /* Конструктор рисуется светлым (quiz.css) — выравниваем кнопки под тёмную тему */
+  .topic-form #quiz-builder .quiz-q-head { color: #1e293b; }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  var HAS_QUIZ = <%= _hasQuiz ? 'true' : 'false' %>;
+  var FORM_BASE = <%- JSON.stringify(formBase) %>;
+  var typeSel = document.getElementById('t-assignment-mode');
+  var form = document.getElementById('topicForm');
+  if (!typeSel || !form) return;
+
+  function switchMode(mode) {
+    var isQuiz = mode === 'quiz';
+    var isInternal = mode === 'internal';
+    var isNoHw = (mode === 'none_no_hw' || isInternal || isQuiz);
+
+    document.querySelectorAll('[data-lecture-quill]').forEach(function (el) { el.hidden = isInternal || isQuiz; });
+    document.querySelectorAll('[data-source-url-panel]').forEach(function (el) { el.hidden = isInternal || isQuiz; });
+    document.querySelectorAll('[data-homework-panel]').forEach(function (el) { el.hidden = isNoHw; });
+    document.querySelectorAll('[data-assignment-panel]').forEach(function (el) { el.hidden = !isInternal; });
+    document.querySelectorAll('[data-quiz-panel]').forEach(function (el) { el.hidden = !isQuiz; });
+
+    document.querySelectorAll('[data-title-label]').forEach(function (el) {
+      el.hidden = (el.dataset.titleLabel === 'internal') !== isInternal;
+    });
+
+    function setDisabled(id, disabled) {
+      var el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    }
+    setDisabled('t-content-url', isInternal || isQuiz);
+    setDisabled('t-homework-text', isNoHw);
+    setDisabled('t-homework-url', isNoHw);
+    setDisabled('t-assignment-title', !isInternal);
+    setDisabled('t-assignment-desc', !isInternal);
+    setDisabled('t-assignment-deadline', !isInternal);
+
+    // Тест-роут перехватывает запрос по ?quiz=1. Флаг нужен и когда
+    // уходим С теста на другой тип — чтобы сервер отвязал тест.
+    form.action = FORM_BASE + ((isQuiz || HAS_QUIZ) ? '?quiz=1' : '');
+  }
+
+  typeSel.addEventListener('change', function () {
+    switchMode(typeSel.value);
+    if (window.UnsavedGuard) window.UnsavedGuard.markDirty();
+  });
+  switchMode(typeSel.value);
+
+  // Обработчики drag-and-drop для карточек вопросов.
+  // Карточки (.quiz-q) создаются deferred-скриптом /js/quiz-builder.js,
+  // поэтому навешиваем draggable через делегирование на контейнер
+  // #quiz-questions — оно работает и для уже существующих, и для
+  // новых элементов без дополнительной интеграции с builder'ом.
+  var qsContainer = document.getElementById('quiz-questions');
+  var dragSource = null;
+
+  function clearDropMarks() {
+    if (!qsContainer) return;
+    qsContainer.querySelectorAll('.drop-above, .drop-below').forEach(function (n) {
+      n.classList.remove('drop-above', 'drop-below');
+    });
+  }
+
+  function renumberQuestions() {
+    if (!qsContainer) return;
+    Array.prototype.forEach.call(qsContainer.children, function (q, i) {
+      var num = q.querySelector(':scope > .quiz-q-head > .quiz-q-num');
+      if (num) num.textContent = String(i + 1) + '.';
+    });
+  }
+
+  function moveBefore(target, source, above) {
+    if (!source || source === target) return;
+    if (above) qsContainer.insertBefore(source, target);
+    else qsContainer.insertBefore(source, target.nextSibling);
+    renumberQuestions();
+  }
+
+  if (qsContainer) {
+    qsContainer.addEventListener('dragstart', function (e) {
+      var card = e.target.closest ? e.target.closest('.quiz-q') : null;
+      if (!card || !qsContainer.contains(card)) return;
+      // Разрешаем перетаскивание только если карточка помечена как
+      // draggable самим builder'ом (в readonly-режиме он это не делает).
+      if (card.getAttribute('draggable') !== 'true') {
+        e.preventDefault();
+        return;
+      }
+      dragSource = card;
+      card.classList.add('dragging');
+      try {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+      } catch (err) { /* ignore */ }
+    });
+
+    qsContainer.addEventListener('dragover', function (e) {
+      if (!dragSource) return;
+      var card = e.target.closest ? e.target.closest('.quiz-q') : null;
+      if (!card || card === dragSource || !qsContainer.contains(card)) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'move'; } catch (err) { /* ignore */ }
+      var rect = card.getBoundingClientRect();
+      var above = (e.clientY - rect.top) < rect.height / 2;
+      clearDropMarks();
+      card.classList.add(above ? 'drop-above' : 'drop-below');
+    });
+
+    qsContainer.addEventListener('drop', function (e) {
+      if (!dragSource) return;
+      var card = e.target.closest ? e.target.closest('.quiz-q') : null;
+      if (!card || card === dragSource || !qsContainer.contains(card)) return;
+      e.preventDefault();
+      var rect = card.getBoundingClientRect();
+      var above = (e.clientY - rect.top) < rect.height / 2;
+      clearDropMarks();
+      moveBefore(card, dragSource, above);
+      dragSource = null;
+    });
+
+    qsContainer.addEventListener('dragend', function () {
+      if (dragSource) dragSource.classList.remove('dragging');
+      clearDropMarks();
+      dragSource = null;
+    });
+  }
+
+  // Этот слушатель регистрируется раньше deferred quiz-builder.js,
+  // поэтому выполняется первым: если выбран НЕ режим теста — убираем
+  // вопросы из DOM, чтобы клиентская валидация конструктора не
+  // блокировала отправку лекции. В режиме «тест» сериализацию в
+  // quiz_json выполняет сам quiz-builder.js (собирает данные через
+  // wrapper._getData() по фактическому порядку карточек в DOM,
+  // который обновляется после перетаскивания).
+  form.addEventListener('submit', function () {
+    var isQuiz = typeSel.value === 'quiz';
+    var json = form.querySelector('input[name="quiz_json"]');
+    if (!isQuiz) {
+      var qs = document.getElementById('quiz-questions');
+      if (qs) qs.innerHTML = '';
+      if (json) json.disabled = true;
+    } else if (json) {
+      json.disabled = false;
+    }
+  });
+})();
+</script>
+
+<script type="application/json" id="topic-init-data"><%- JSON.stringify(initData).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="quiz-builder-data"><%- JSON.stringify({
+  quiz: _quizData,
+  attemptsCount: _quizAttempts
+}).replace(/</g, '\\u003c') %></script>
+<script src="/js/quiz-builder.js" defer></script>
+
+<%- include('../../shared/ui/file-viewer') %>
+<%- include('../../layout/footer') %>

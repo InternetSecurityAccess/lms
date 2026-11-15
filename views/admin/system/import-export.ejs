@@ -1,0 +1,150 @@
+<%- include('../../layout/header', { title: 'Импорт и экспорт' }) %>
+<div class="content-wrapper">
+  <div class="top-bar">
+    <h1 class="top-bar-title">Импорт и экспорт</h1>
+    <a href="/admin" class="btn btn-ghost">← В админку</a>
+  </div>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="info-box info-box-red" role="alert"><%= error %></div>
+  <% } %>
+  <div class="info-box info-box-blue info-box-how">
+    <strong>Формат CSV:</strong> UTF-8, разделитель <code>;</code> (или <code>,</code> — определится автоматически).
+    Первая строка — заголовки. Ключевое поле — <code>login</code> для пользователей
+    и <code>name</code> для групп.<br>
+    <strong>Режимы:</strong> «Создавать новые» пропускает существующих; «Обновлять существующие» —
+    только найденных; «Создать или обновить» — комбинация; «Удалить по списку» — soft-delete
+    или hard-delete (по галочке).<br>
+    <strong>Лимит — 2000 строк</strong> за один импорт. Ошибки показываются построчно после импорта.
+    Без пароля в CSV — генерируется случайный (8 цифр), показывается один раз после импорта.
+  </div>
+  <section class="card">
+    <div class="card-header"><h2>Преподаватели</h2></div>
+    <p class="cell-secondary m-0">
+      Колонки: <code>login</code>, <code>last_name</code>, <code>first_name</code>,
+      <code>middle_name</code>, <code>password</code>, <code>status</code> (active/finished).
+    </p>
+    <div class="actions-row">
+      <a href="/admin/import-export/template/teachers" class="btn btn-secondary">Скачать шаблон</a>
+      <a href="/admin/import-export/export/teachers" class="btn btn-secondary">Экспорт CSV</a>
+    </div>
+    <form action="/admin/import-export/import/teachers" method="POST"
+      enctype="multipart/form-data" class="mt-3">
+      <div class="form-grid">
+        <label for="teachers-mode" class="form-label">Режим</label>
+        <div class="field">
+          <select id="teachers-mode" name="mode" required data-import-mode>
+            <option value="create">Создавать новые</option>
+            <option value="update">Обновлять существующие</option>
+            <option value="upsert">Создать или обновить</option>
+            <option value="delete">Удалить по списку</option>
+          </select>
+        </div>
+        <label for="teachers-file" class="form-label">Файл CSV</label>
+        <div class="field">
+          <input type="file" id="teachers-file" name="file" accept=".csv,text/csv" required>
+        </div>
+        <label for="teachers-hard" class="form-label">Удаление</label>
+        <div class="field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="teachers-hard" name="hard_delete" value="1">
+            <span>Удалить навсегда</span>
+          </label>
+          <div class="hint">
+            Без галочки — soft-delete: строки попадут в <a href="/admin/trash">/admin/trash</a>.
+            С галочкой — hard-delete с чисткой файлов, восстановить нельзя.
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-success">Применить к преподавателям</button>
+        </div>
+      </div>
+    </form>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Студенты</h2></div>
+    <p class="cell-secondary m-0">
+      Колонки: <code>login</code> (<%= studentLoginType === 'email' ? 'email' : 'номер студенческого' %>),
+      <code>last_name</code>, <code>first_name</code>, <code>middle_name</code>,
+      <code>group</code>, <code>password</code>, <code>status</code> (active/finished).
+    </p>
+    <div class="actions-row">
+      <a href="/admin/import-export/template/students" class="btn btn-secondary">Скачать шаблон</a>
+      <a href="/admin/import-export/export/students" class="btn btn-secondary">Экспорт CSV</a>
+    </div>
+    <form action="/admin/import-export/import/students" method="POST"
+      enctype="multipart/form-data" class="mt-3">
+      <div class="form-grid">
+        <label for="students-mode" class="form-label">Режим</label>
+        <div class="field">
+          <select id="students-mode" name="mode" required data-import-mode>
+            <option value="create">Создавать новые</option>
+            <option value="update">Обновлять существующие</option>
+            <option value="upsert">Создать или обновить</option>
+            <option value="delete">Удалить по списку</option>
+          </select>
+        </div>
+        <label for="students-file" class="form-label">Файл CSV</label>
+        <div class="field">
+          <input type="file" id="students-file" name="file" accept=".csv,text/csv" required>
+        </div>
+        <label for="students-hard" class="form-label">Удаление</label>
+        <div class="field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="students-hard" name="hard_delete" value="1">
+            <span>Удалить навсегда</span>
+          </label>
+          <div class="hint">
+            Без галочки — soft-delete: строки попадут в <a href="/admin/trash">/admin/trash</a>.
+            С галочкой — hard-delete с чисткой файлов.
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-success">Применить к студентам</button>
+        </div>
+      </div>
+    </form>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Группы</h2></div>
+    <p class="cell-secondary m-0">
+      Колонки: <code>name</code>, <code>status</code> (active/finished).
+    </p>
+    <div class="actions-row">
+      <a href="/admin/import-export/template/groups" class="btn btn-secondary">Скачать шаблон</a>
+      <a href="/admin/import-export/export/groups" class="btn btn-secondary">Экспорт CSV</a>
+    </div>
+    <form action="/admin/import-export/import/groups" method="POST"
+      enctype="multipart/form-data" class="mt-3">
+      <div class="form-grid">
+        <label for="groups-mode" class="form-label">Режим</label>
+        <div class="field">
+          <select id="groups-mode" name="mode" required data-import-mode>
+            <option value="create">Создавать новые</option>
+            <option value="upsert">Создать или обновить</option>
+            <option value="delete">Удалить по списку</option>
+          </select>
+        </div>
+        <label for="groups-file" class="form-label">Файл CSV</label>
+        <div class="field">
+          <input type="file" id="groups-file" name="file" accept=".csv,text/csv" required>
+        </div>
+        <label for="groups-hard" class="form-label">Удаление</label>
+        <div class="field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="groups-hard" name="hard_delete" value="1">
+            <span>Удалить навсегда (только пустые группы)</span>
+          </label>
+          <div class="hint">
+            Без галочки — soft-delete: группы попадут в <a href="/admin/trash">/admin/trash</a>.
+            С галочкой — hard-delete. <strong>Непустую группу удалить нельзя</strong> —
+            сначала отвяжите студентов и перенесите связанные данные.
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-success">Применить к группам</button>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

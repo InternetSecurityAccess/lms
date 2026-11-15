@@ -1,0 +1,163 @@
+<%- include('../../layout/header', { title: 'Все объявления' }) %>
+<%
+  const baseQuery = { q: q || '', group: groupId || '' };
+  const flashes = deletedDone
+    ? [{ type: 'yellow', text: '<strong>Объявление перемещено в корзину.</strong> Восстановить можно в <a href="/admin/trash">/admin/trash</a>.' }]
+    : [];
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Все объявления',
+    actions: [
+      { href: '/admin/trash', label: 'Корзина', class: 'btn-ghost btn-sm' },
+      { href: '/admin', label: '← В админку' }
+    ],
+    flashes
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Это объявления всех групп. <strong>«В корзину»</strong> — soft-delete:
+    объявление скрывается у студентов, восстановить можно из /admin/trash.
+  </div>
+  <form method="GET" action="/admin/announcements" class="inline-add-form">
+    <input type="search" name="q" value="<%= q %>" maxlength="100"
+      placeholder="Поиск по заголовку или тексту" class="search-input-240">
+    <select name="group">
+      <option value="">Все группы</option>
+      <% groups.forEach((g) => { %>
+        <option value="<%= g.id %>" <%= String(groupId) === String(g.id) ? 'selected' : '' %>><%= g.name %></option>
+      <% }) %>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q || groupId) { %>
+      <a href="/admin/announcements" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <section class="card">
+    <div class="card-header"><h2>Объявления (<%= rows.length %>)</h2></div>
+    <%- include('../../shared/ui/bulk-toolbar', {
+      entity: 'announcements',
+      scope: 'announcements',
+      actions: [
+        {
+          href: '/admin/bulk-delete',
+          label: 'В корзину',
+          class: 'btn-danger btn-sm',
+          method: 'POST',
+          confirm: 'Переместить выбранные объявления в корзину? Восстановить можно из /admin/trash.',
+          okText: 'В корзину',
+          okClass: 'warning'
+        }
+      ]
+    }) %>
+    <div class="info-box info-box-blue">
+      Клик по заголовку открывает карточку: полный текст, удаление в корзину.
+    </div>
+    <% if (rows.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', {
+        primary: 'Объявлений не найдено.',
+        action: (q || groupId) ? { href: '/admin/announcements', label: 'Сбросить фильтры' } : null,
+        wrapper: false
+      }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="bulk-th"><input type="checkbox" data-bulk-all data-bulk-scope="announcements" aria-label="Выбрать всех"></th>
+              <th class="th-50">ID</th>
+              <th>Заголовок</th>
+              <th>Группа</th>
+              <th>Автор</th>
+              <th class="th-160">Создано</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => { %>
+              <tr>
+                <td class="bulk-td"><input type="checkbox" data-bulk-checkbox data-bulk-scope="announcements" value="<%= r.id %>" aria-label="Выбрать объявление <%= r.title %>"></td>
+                <td><%= r.id %></td>
+                <td>
+                  <button type="button" class="link-button"
+                          data-modal-open="announcement-modal-<%= r.id %>"
+                          title="Открыть карточку">
+                    <% if (r.pinned) { %>📌 <% } %><%= r.title %>
+                  </button>
+                  <% if (r.content) { %>
+                    <div class="cell-secondary"><%= r.content.slice(0, 80) %><%= r.content.length > 80 ? '…' : '' %></div>
+                  <% } %>
+                </td>
+                <td class="cell-secondary"><%= r.group_name %></td>
+                <td class="cell-secondary"><%= r.teacher_name %></td>
+                <td class="cell-secondary text-nowrap"><%= formatDate(r.created_at, true) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/announcements', baseQuery, { page: p > 1 ? p : '' })
+      }) %>
+    <% } %>
+  </section>
+</div>
+
+<%# ═══════════════ МОДАЛКИ РЕДАКТИРОВАНИЯ ═══════════════ %>
+<% rows.forEach((r) => { %>
+  <div class="modal" id="announcement-modal-<%= r.id %>" hidden role="dialog" aria-modal="true"
+       aria-labelledby="announcement-modal-title-<%= r.id %>">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="announcement-modal-title-<%= r.id %>">
+          Объявление #<%= r.id %>
+        </h3>
+        <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>Заголовок и автор</h4>
+        <div class="info-list">
+          <div>
+            <strong>Заголовок</strong>
+            <span><% if (r.pinned) { %>📌 <% } %><%= r.title %></span>
+          </div>
+          <div><strong>Группа</strong><span><%= r.group_name %></span></div>
+          <div><strong>Автор</strong><span><%= r.teacher_name %></span></div>
+          <div><strong>Создано</strong><span><%= formatDate(r.created_at, true) %></span></div>
+          <% if (r.pinned) { %>
+            <div><strong>Закреплено</strong><span>да</span></div>
+          <% } %>
+        </div>
+      </div>
+
+      <% if (r.content) { %>
+        <div class="modal-section">
+          <h4>Текст</h4>
+          <div class="text-pre" style="white-space: pre-wrap; overflow-wrap: anywhere;"><%= r.content %></div>
+        </div>
+      <% } %>
+
+      <div class="modal-section">
+        <h4>Удаление</h4>
+        <form method="POST" action="/admin/announcements/<%= r.id %>/delete"
+              class="form-row"
+              data-confirm="Переместить объявление «<%= r.title %>» в корзину?&#10;Восстановить можно из /admin/trash."
+              data-confirm-ok-text="В корзину"
+              data-confirm-ok-class="warning">
+          <button type="submit" class="btn btn-danger btn-sm">В корзину</button>
+        </form>
+        <div class="hint">
+          Soft-delete. Объявление скрывается у студентов, восстановить можно из
+          <a href="/admin/trash">корзины</a>.
+        </div>
+      </div>
+
+      <div class="actions-row" style="justify-content: flex-end; margin-top: var(--space-3);">
+        <button type="button" class="btn btn-ghost" data-modal-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<%- include('../../layout/footer') %>

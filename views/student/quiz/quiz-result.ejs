@@ -1,0 +1,74 @@
+<%- include('../../layout/header', { title: 'Результат теста' }) %>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: attempt.quiz_title || 'Результат теста',
+    actions: [
+      { href: '/my-subjects/' + topic.subject_id + '/topics/' + topic.id + '/quiz', label: '← к описанию теста', class: 'btn-ghost btn-sm' }
+    ]
+  }) %>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Результат теста</h2>
+    </div>
+    <div class="card-body">
+      <div class="quiz-result-hero <%= verdict === 'Сдал' ? 'pass' : 'fail' %>">
+        <div class="score"><%= scorePercent %>%</div>
+        <div class="percent"><%= attempt.score %> из <%= attempt.max_score %> баллов</div>
+        <div class="verdict"><%= verdict %></div>
+        <% if (Number(attempt.pass_percent) > 0 && Number(attempt.pass_percent) !== 0) { %>
+          <div style="margin-top:6px; font-size:14px;">Проходной балл: <%= attempt.pass_percent %>%</div>
+        <% } %>
+        <% if (attempt.status === 'expired') { %>
+          <div style="margin-top: 12px; font-size: 14px; color: var(--warning);">⏰ Время вышло, попытка завершена автоматически.</div>
+        <% } %>
+      </div>
+
+      <% if (quiz.show_correct && questionList.length > 0) { %>
+        <h3 style="margin-top: 32px;">Разбор ответов</h3>
+        <% questionList.forEach(function (q, idx) {
+             var res = results[idx];
+             var picked = Array.isArray(q.selected_positions) ? q.selected_positions : [];
+        %>
+          <div class="quiz-review-q">
+            <div class="q-text"><%= idx + 1 %>. <%- q.q_text %></div>
+            <% if (q.image_stored_name) { %><img src="/file/quiz-image/question/<%= q.id %>" alt="" style="max-width: 100%; margin: 8px 0;"><% } %>
+            <div class="quiz-review-opts">
+              <% q.options.forEach(function (opt) {
+                   var userPicked = picked.indexOf(String(opt.id)) !== -1;
+              %>
+                <div class="quiz-review-opt <%= opt.is_correct ? 'is-correct' : '' %>">
+                  <span class="marker">
+                    <% if (q.type === 'single' || q.type === 'multiple') { %>
+                      <% if (opt.is_correct && userPicked) { %>✓<% } %>
+                      <% if (opt.is_correct && !userPicked) { %>○<% } %>
+                      <% if (!opt.is_correct && userPicked) { %>✗<% } %>
+                      <% if (!opt.is_correct && !userPicked) { %>·<% } %>
+                    <% } else if (q.type === 'ordering') { %>
+                      <% if (userPicked) { %><span class="order-pos">#<%= picked.indexOf(String(opt.id)) + 1 %></span><% } %>
+                    <% } %>
+                  </span>
+                  <span><%- opt.text %></span>
+                  <% if (opt.image_stored_name) { %><img src="/file/quiz-image/option/<%= opt.id %>" alt="" style="max-width: 100px; margin-left: 8px;"><% } %>
+                </div>
+              <% }) %>
+            </div>
+            <div style="margin-top: 8px; font-size: 14px;">Баллы: <strong><%= res ? res.score : 0 %> / <%= q.points %></strong></div>
+          </div>
+        <% }) %>
+      <% } %>
+
+      <div class="actions-row" style="margin-top: 32px;">
+        <a href="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz" class="btn btn-secondary">К тесту</a>
+        <% if (canRetry) { %>
+          <form method="post" style="display:inline;"
+                action="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz/start">
+            <button type="submit" class="btn btn-primary">Пройти заново</button>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<link rel="stylesheet" href="/css/quiz.css">
+<%- include('../../layout/footer') %>

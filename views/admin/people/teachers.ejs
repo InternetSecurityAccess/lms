@@ -1,0 +1,270 @@
+<%- include('../../layout/header', { title: 'Преподаватели' }) %>
+<%
+  const pageError = (typeof error !== 'undefined' && error) ? error : null;
+  const createdT = (typeof createdTeacher !== 'undefined') ? createdTeacher : null;
+  const baseQuery = {
+    q: q || '',
+    status: status || 'active',
+    has_groups: hasGroups || '',
+    sort: sort || 'name_asc'
+  };
+  const redirectTo = buildUrl('/admin/teachers', baseQuery);
+  const flashes = deletedDone
+    ? [{ type: 'yellow', text: '<strong>Преподаватель перемещён в корзину.</strong> Восстановить можно в <a href="/admin/trash">/admin/trash</a>.' }]
+    : [];
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Преподаватели',
+    actions: [
+      { href: '/admin/trash', label: 'Корзина', class: 'btn-ghost btn-sm' },
+      { href: '/admin', label: '← В админку' }
+    ],
+    flashes
+  }) %>
+  <% if (pageError) { %>
+    <div class="info-box info-box-red" role="alert"><%= pageError %></div>
+  <% } %>
+  <div class="info-box info-box-blue info-box-how">
+    Email — это логин для входа. При создании <strong>пароль генерируется
+    автоматически (8 цифр)</strong> и показывается один раз; при первом входе
+    преподаватель обязан сменить его.<br>
+    <strong>Завершить</strong> — преподаватель теряет доступ, данные и предметы
+    сохраняются. <strong>Возобновить</strong> — снова active.<br>
+    <strong>В корзину</strong> — soft-delete. Восстановить можно из
+    <a href="/admin/trash">корзины</a>; hard-delete только там.<br>
+    Клик по ФИО открывает карточку редактирования.
+  </div>
+  <section class="card">
+    <div class="card-header"><h2>Добавить преподавателя</h2></div>
+    <form action="/admin/teachers" method="POST" class="inline-add-form items-start">
+      <input type="email" name="login" required maxlength="200" placeholder="Email" class="search-input-180">
+      <input type="text" name="last_name" required maxlength="100" placeholder="Фамилия" class="search-input-140">
+      <input type="text" name="first_name" required maxlength="100" placeholder="Имя" class="search-input-140">
+      <input type="text" name="middle_name" maxlength="100" placeholder="Отчество" class="search-input-140">
+      <button type="submit" class="btn btn-success">Добавить</button>
+    </form>
+  </section>
+  <section class="card">
+    <div class="tabs">
+      <a href="<%= buildUrl('/admin/teachers', baseQuery, { status: 'active' }) %>"
+         class="tab <%= status === 'active' ? 'active' : '' %>">Активные (<%= counts.active %>)</a>
+      <a href="<%= buildUrl('/admin/teachers', baseQuery, { status: 'finished' }) %>"
+         class="tab <%= status === 'finished' ? 'active' : '' %>">Завершённые (<%= counts.finished %>)</a>
+      <a href="<%= buildUrl('/admin/teachers', baseQuery, { status: 'all' }) %>"
+         class="tab <%= status === 'all' ? 'active' : '' %>">Все</a>
+    </div>
+    <%- include('../../shared/ui/filter-chips', {
+      items: [
+        { href: buildUrl('/admin/teachers', baseQuery, { has_groups: '' }),     label: 'Все',         active: !hasGroups },
+        { href: buildUrl('/admin/teachers', baseQuery, { has_groups: 'yes' }),  label: 'С группами', active: hasGroups === 'yes' },
+        { href: buildUrl('/admin/teachers', baseQuery, { has_groups: 'none' }), label: 'Без групп',  active: hasGroups === 'none' }
+      ]
+    }) %>
+    <form method="GET" action="/admin/teachers" class="inline-add-form">
+      <input type="hidden" name="status" value="<%= status %>">
+      <% if (hasGroups) { %><input type="hidden" name="has_groups" value="<%= hasGroups %>"><% } %>
+      <input type="search" name="q" value="<%= q %>" placeholder="Поиск по ФИО или email" maxlength="100" class="search-input-260">
+      <select name="sort">
+        <option value="name_asc" <%= sort === 'name_asc' ? 'selected' : '' %>>По ФИО (А→Я)</option>
+        <option value="name_desc" <%= sort === 'name_desc' ? 'selected' : '' %>>По ФИО (Я→А)</option>
+        <option value="date_desc" <%= sort === 'date_desc' ? 'selected' : '' %>>Сначала новые</option>
+        <option value="date_asc" <%= sort === 'date_asc' ? 'selected' : '' %>>Сначала старые</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+      <% if (q || hasGroups) { %>
+        <a href="<%= buildUrl('/admin/teachers', baseQuery, { q: '', has_groups: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+      <% } %>
+    </form>
+<%- include('../../shared/ui/bulk-toolbar', {
+  entity: 'teachers',
+  scope: 'teachers',
+  actions: [
+    {
+      href: '/admin/bulk-finish',
+      label: 'Завершить',
+      class: 'btn-warning btn-sm',
+      method: 'POST',
+      confirm: 'Завершить выбранных преподавателей? Они потеряют доступ, данные сохранятся.',
+      okText: 'Завершить',
+      okClass: 'warning'
+    },
+    {
+      href: '/admin/bulk-activate',
+      label: 'Возобновить',
+      class: 'btn-success btn-sm',
+      method: 'POST',
+      confirm: 'Возобновить выбранных преподавателей?'
+    },
+    {
+      href: '/admin/bulk-delete',
+      label: 'В корзину',
+      class: 'btn-danger btn-sm',
+      method: 'POST',
+      confirm: 'Переместить выбранных преподавателей в корзину? Файлы сохранятся до hard-delete из /admin/trash.',
+      okText: 'В корзину',
+      okClass: 'danger'
+    }
+  ]
+}) %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="bulk-th"><input type="checkbox" data-bulk-all aria-label="Выбрать всех"></th>
+            <th class="th-50">ID</th>
+            <th>ФИО</th>
+            <th>Email (логин)</th>
+            <th class="th-80">Групп</th>
+            <th class="th-80">Работ</th>
+            <th class="th-100">Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% teachers.forEach((t) => {
+            const isActive = t.status === 'active';
+          %>
+            <tr class="<%= !isActive ? 'cell-secondary' : '' %>">
+              <td class="bulk-td"><input type="checkbox" data-bulk-checkbox data-bulk-scope="teachers" value="<%= t.id %>" aria-label="Выбрать преподавателя <%= t.name %>"></td>
+              <td><%= t.id %></td>
+              <td>
+                <button type="button" class="link-button"
+                        data-modal-open="teacher-modal-<%= t.id %>"
+                        title="Открыть карточку">
+                  <%= t.name %>
+                </button>
+              </td>
+              <td><%= t.login || '—' %></td>
+              <td><%= t.groups_count %></td>
+              <td><%= t.works_count %></td>
+              <td>
+                <span class="status-badge <%= isActive ? 'status-success' : 'status-muted' %>">
+                  <%= isActive ? 'активен' : 'завершён' %>
+                </span>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (teachers.length === 0) { %>
+            <tr><td colspan="7" class="cell-secondary empty-cell">Ничего не найдено.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('../../shared/ui/paginator', {
+      page, pages, total,
+      urlFn: (p) => buildUrl('/admin/teachers', baseQuery, { page: p > 1 ? p : '' })
+    }) %>
+  </section>
+</div>
+
+<%# ═══════════════ МОДАЛКИ РЕДАКТИРОВАНИЯ ═══════════════ %>
+<% teachers.forEach((t) => {
+  const isActive = t.status === 'active';
+%>
+  <div class="modal" id="teacher-modal-<%= t.id %>" hidden role="dialog" aria-modal="true"
+       aria-labelledby="teacher-modal-title-<%= t.id %>">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="teacher-modal-title-<%= t.id %>">
+          Преподаватель #<%= t.id %>
+        </h3>
+        <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>ФИО</h4>
+        <form method="POST" action="/admin/teachers/<%= t.id %>/change-name"
+              class="form-row">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <input type="text" name="last_name" value="<%= t.last_name || '' %>"
+                 required maxlength="100" placeholder="Фамилия">
+          <input type="text" name="first_name" value="<%= t.first_name || '' %>"
+                 required maxlength="100" placeholder="Имя">
+          <input type="text" name="middle_name" value="<%= t.middle_name || '' %>"
+                 maxlength="100" placeholder="Отчество">
+          <button type="submit" class="btn btn-success btn-sm">Сохранить</button>
+        </form>
+      </div>
+
+      <div class="modal-section">
+        <h4>Email (логин)</h4>
+        <form method="POST" action="/admin/teachers/<%= t.id %>/change-login"
+              class="form-row"
+              data-confirm="Сменить email преподавателя <%= t.name %>? Все его сессии завершатся."
+              data-confirm-ok-text="Сменить"
+              data-confirm-ok-class="primary">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <input type="email" name="login" value="<%= t.login || '' %>"
+                 maxlength="200" required placeholder="teacher@example.com">
+          <button type="submit" class="btn btn-success btn-sm">Сохранить</button>
+        </form>
+      </div>
+
+      <div class="modal-section">
+        <h4>Пароль</h4>
+        <div class="actions-row">
+          <button type="button" class="btn btn-secondary btn-sm reset-password-btn"
+                  data-url="/admin/teachers/<%= t.id %>/reset-password"
+                  data-user-name="<%= t.name %>">
+            Сбросить пароль
+          </button>
+        </div>
+        <div class="hint">
+          Новый пароль (8 цифр) будет показан один раз. Все сессии преподавателя завершатся.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Статус</h4>
+        <div class="actions-row">
+          <span class="status-badge <%= isActive ? 'status-success' : 'status-muted' %>">
+            <%= isActive ? 'активен' : 'завершён' %>
+          </span>
+          <form method="POST" action="/admin/teachers/<%= t.id %>/toggle-status"
+                class="inline-form"
+                data-confirm="<%= isActive
+                  ? 'Завершить преподавателя ' + t.name + '? Он потеряет доступ, данные сохранятся.'
+                  : 'Возобновить преподавателя ' + t.name + '?' %>"
+                data-confirm-ok-text="<%= isActive ? 'Завершить' : 'Возобновить' %>"
+                data-confirm-ok-class="<%= isActive ? 'warning' : 'success' %>">
+            <input type="hidden" name="redirect" value="<%= redirectTo %>">
+            <button type="submit" class="btn <%= isActive ? 'btn-warning' : 'btn-success' %> btn-sm">
+              <%= isActive ? 'Завершить' : 'Возобновить' %>
+            </button>
+          </form>
+        </div>
+        <div class="hint">
+          Завершённый преподаватель не может войти в систему. Данные и файлы сохраняются.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Удаление</h4>
+        <form method="POST" action="/admin/teachers/<%= t.id %>/delete"
+              class="form-row"
+              data-confirm="Переместить преподавателя <%= t.name %> в корзину? Восстановить можно в /admin/trash."
+              data-confirm-ok-text="В корзину"
+              data-confirm-ok-class="danger">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <button type="submit" class="btn btn-danger btn-sm">В корзину</button>
+        </form>
+        <div class="hint">
+          Soft-delete. Данные и файлы сохраняются, восстановить можно из
+          <a href="/admin/trash">корзины</a>.
+        </div>
+      </div>
+
+      <div class="actions-row" style="justify-content: flex-end; margin-top: var(--space-3);">
+        <button type="button" class="btn btn-ghost" data-modal-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<%- include('../../shared/ui/reset-password', {
+  autoPasswordName: createdT ? createdT.name : null,
+  autoPasswordPassword: createdT ? createdT.password : null,
+  autoPasswordDigits: createdT ? createdT.digits : null
+}) %>
+<%- include('../../layout/footer') %>

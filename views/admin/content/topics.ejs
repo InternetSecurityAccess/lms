@@ -1,0 +1,181 @@
+<%- include('../../layout/header', { title: 'Все темы' }) %>
+<%
+  const baseQuery = { q: q || '', subject: subjectId || '' };
+  const flashes = deletedDone
+    ? [{ type: 'yellow', text: '<strong>Тема перемещена в корзину.</strong> Восстановить можно в <a href="/admin/trash">/admin/trash</a>.' }]
+    : [];
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Все темы',
+    actions: [
+      { href: '/admin/trash', label: 'Корзина', class: 'btn-ghost btn-sm' },
+      { href: '/admin', label: '← В админку' }
+    ],
+    flashes
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Полный список тем всех предметов. <strong>«В корзину»</strong> — soft-delete:
+    файлы сохраняются до hard-delete из /admin/trash. Если у темы есть задание
+    со сдачами — задание станет <strong>«Завершено»</strong> (работы сохранятся).
+  </div>
+  <form method="GET" action="/admin/topics" class="inline-add-form">
+    <input type="search" name="q" value="<%= q %>" maxlength="100"
+      placeholder="Поиск по названию или описанию" class="search-input-240">
+    <select name="subject">
+      <option value="">Все предметы</option>
+      <% subjects.forEach((s) => { %>
+        <option value="<%= s.id %>" <%= String(subjectId) === String(s.id) ? 'selected' : '' %>><%= s.title %></option>
+      <% }) %>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q || subjectId) { %>
+      <a href="/admin/topics" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <section class="card">
+    <div class="card-header"><h2>Темы (<%= rows.length %>)</h2></div>
+    <%- include('../../shared/ui/bulk-toolbar', {
+      entity: 'topics',
+      scope: 'topics',
+      actions: [
+        {
+          href: '/admin/bulk-delete',
+          label: 'В корзину',
+          class: 'btn-danger btn-sm',
+          method: 'POST',
+          confirm: 'Переместить выбранные темы в корзину? Файлы сохранятся до hard-delete из /admin/trash. Если у темы есть задание со сдачами — оно станет «Завершено» (работы сохранятся).',
+          okText: 'В корзину',
+          okClass: 'danger'
+        }
+      ]
+    }) %>
+    <div class="info-box info-box-blue">
+      Клик по названию открывает карточку: информация о теме и «В корзину».
+    </div>
+    <% if (rows.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', {
+        primary: 'Тем не найдено.',
+        action: (q || subjectId) ? { href: '/admin/topics', label: 'Сбросить фильтры' } : null,
+        wrapper: false
+      }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="bulk-th"><input type="checkbox" data-bulk-all data-bulk-scope="topics" aria-label="Выбрать всех"></th>
+              <th class="th-50">ID</th>
+              <th>Тема</th>
+              <th>Предмет</th>
+              <th class="th-200">Задание</th>
+              <th class="th-120">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => { %>
+              <tr>
+                <td class="bulk-td"><input type="checkbox" data-bulk-checkbox data-bulk-scope="topics" value="<%= r.id %>" aria-label="Выбрать тему <%= r.title %>"></td>
+                <td><%= r.id %></td>
+                <td>
+                  <button type="button" class="link-button"
+                          data-modal-open="topic-modal-<%= r.id %>"
+                          title="Открыть карточку">
+                    <%= r.title %>
+                  </button>
+                  <% if (r.description) { %>
+                    <% const plain = String(r.description).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); %>
+                    <div class="cell-secondary"><%= plain.slice(0, 80) %><%= plain.length > 80 ? '…' : '' %></div>
+                  <% } %>
+                </td>
+                <td class="cell-secondary"><%= r.subject_title %></td>
+                <td class="cell-secondary">
+                  <% if (r.assignment_id) { %>
+                    📝 <%= r.assignment_title || '—' %>
+                  <% } else if (r.homework_text || r.assignment_url) { %>
+                    📖 ДЗ
+                  <% } else { %>—<% } %>
+                </td>
+                <td>
+                  <span class="status-badge <%= r.status === 'published' ? 'status-success'
+                    : r.status === 'finished' ? 'status-muted' : 'status-warning' %>">
+                    <%= r.status === 'published' ? 'опубликовано'
+                      : r.status === 'finished' ? 'завершено' : 'черновик' %>
+                  </span>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/topics', baseQuery, { page: p > 1 ? p : '' })
+      }) %>
+    <% } %>
+  </section>
+</div>
+
+<%# ═══════════════ МОДАЛКИ ПРОСМОТРА ═══════════════ %>
+<% rows.forEach((r) => { %>
+  <div class="modal" id="topic-modal-<%= r.id %>" hidden role="dialog" aria-modal="true"
+       aria-labelledby="topic-modal-title-<%= r.id %>">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="topic-modal-title-<%= r.id %>">
+          Тема #<%= r.id %>
+        </h3>
+        <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>Информация</h4>
+        <div class="info-list">
+          <div><strong>Название</strong><span><%= r.title %></span></div>
+          <div><strong>Предмет</strong><span><%= r.subject_title %></span></div>
+          <div>
+            <strong>Статус</strong>
+            <span>
+              <span class="status-badge <%= r.status === 'published' ? 'status-success'
+                : r.status === 'finished' ? 'status-muted' : 'status-warning' %>">
+                <%= r.status === 'published' ? 'опубликовано'
+                  : r.status === 'finished' ? 'завершено' : 'черновик' %>
+              </span>
+            </span>
+          </div>
+          <% if (r.assignment_id) { %>
+            <div><strong>Задание</strong><span>📝 <%= r.assignment_title || '—' %></span></div>
+          <% } else if (r.homework_text || r.assignment_url) { %>
+            <div><strong>ДЗ</strong><span>📖 внешнее</span></div>
+          <% } %>
+          <% if (r.description) { %>
+            <% const plain = String(r.description).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); %>
+            <div><strong>Текст</strong><span class="text-pre"><%= plain.slice(0, 300) %><%= plain.length > 300 ? '…' : '' %></span></div>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Удаление</h4>
+        <form method="POST" action="/admin/topics/<%= r.id %>/delete"
+              class="form-row"
+              data-confirm="Переместить тему «<%= r.title %>» в корзину?&#10;Файлы сохранятся до hard-delete из /admin/trash.&#10;Если у темы есть задание со сдачами — оно станет «Завершено» (работы сохранятся)."
+              data-confirm-ok-text="В корзину"
+              data-confirm-ok-class="warning">
+          <button type="submit" class="btn btn-danger btn-sm">В корзину</button>
+        </form>
+        <div class="hint">
+          Soft-delete. Файлы сохраняются до hard-delete из
+          <a href="/admin/trash">корзины</a>.
+        </div>
+      </div>
+
+      <div class="actions-row" style="justify-content: flex-end; margin-top: var(--space-3);">
+        <button type="button" class="btn btn-ghost" data-modal-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<%- include('../../layout/footer') %>

@@ -1,0 +1,136 @@
+<%- include('../../layout/header', { title: 'Результаты теста' }) %>
+<%
+  const basePath = `/teacher/quiz/${topic.id}/results`;
+  const baseQuery = { group: selectedGroup || '' };
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Результаты теста',
+    actions: [
+      { href: '/subjects/' + topic.subject_id + '/topics/' + topic.id + '/edit', label: '← К теме', class: 'btn-ghost btn-sm' }
+    ]
+  }) %>
+  <div class="info-box info-box-blue">
+    Предмет: <strong><%= topic.subject_title %></strong> · Тема: <strong><%= topic.topic_title %></strong>
+  </div>
+
+  <% if (!quiz) { %>
+    <section class="card">
+      <div class="empty-state">Тест для этой темы ещё не создан.</div>
+    </section>
+  <% } else { %>
+    <div class="quiz-info-grid">
+      <div class="quiz-info-cell">
+        <div class="label">Проходной балл</div>
+        <div class="value"><%= quiz.pass_percent %>%</div>
+      </div>
+      <div class="quiz-info-cell">
+        <div class="label">Лимит попыток</div>
+        <div class="value"><%= quiz.max_attempts === 0 ? '∞' : quiz.max_attempts %></div>
+      </div>
+      <div class="quiz-info-cell">
+        <div class="label">Лимит времени</div>
+        <div class="value"><%= quiz.time_limit_minutes ? quiz.time_limit_minutes + ' мин' : '—' %></div>
+      </div>
+      <div class="quiz-info-cell">
+        <div class="label">Студентов прошло</div>
+        <div class="value"><%= passedCount %></div>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-header"><h2>Результаты (<%= groups.length %>)</h2></div>
+      <% if (groupsList.length > 1) { %>
+        <div class="filter-chips">
+          <a href="<%= basePath %>" class="chip <%= !selectedGroup ? 'active' : '' %>">Все группы</a>
+          <% groupsList.forEach((g) => { %>
+            <a href="<%= buildUrl(basePath, baseQuery, { group: g.id }) %>"
+               class="chip <%= String(selectedGroup) === String(g.id) ? 'active' : '' %>"><%= g.name %></a>
+          <% }) %>
+        </div>
+      <% } %>
+      <% if (groups.length === 0) { %>
+        <%- include('../../shared/ui/empty-state', {
+          primary: 'Пока никто не проходил тест.',
+          wrapper: false
+        }) %>
+      <% } else { %>
+        <div class="table-scroll">
+          <table class="data-table quiz-results-table">
+            <thead>
+              <tr>
+                <th>Студент</th>
+                <th>Группа</th>
+                <th>Лучший балл</th>
+                <th>Результат</th>
+                <th>Попытки</th>
+              </tr>
+            </thead>
+            <% resultsGroups.forEach(function (grp) { %>
+              <% if (resultsGroups.length > 1 && !selectedGroup) { %>
+                <tbody>
+                  <tr class="group-header-row">
+                    <td colspan="5"><strong>Группа: <%= grp.name %></strong>
+                      <span class="cell-secondary">(<%= grp.students.length %>)</span></td>
+                  </tr>
+                </tbody>
+              <% } %>
+              <tbody>
+                <% grp.students.forEach(function (g) { %>
+                  <tr>
+                    <td>
+                      <div class="cell-primary">
+                        <strong><%= g.student.last_name %></strong>
+                        <%= g.student.first_name %> <%= g.student.middle_name || '' %>
+                      </div>
+                    </td>
+                    <td><%= g.student.group_name %></td>
+                    <td>
+                      <% if (g.best) { %>
+                        <%= g.best.score %> / <%= g.best.max_score %>
+                        <% if (g.best.max_score > 0) { %>
+                          <span class="cell-secondary">(<%= Math.round((g.best.score / g.best.max_score) * 100) %>%)</span>
+                        <% } %>
+                      <% } else { %>
+                        <span class="cell-secondary">—</span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <% if (!g.best) { %>
+                        <span class="status-badge status-pending">в процессе</span>
+                      <% } else if (g.best.passed) { %>
+                        <span class="status-badge status-accepted">Сдал</span>
+                      <% } else { %>
+                        <span class="status-badge status-rejected">Не сдал</span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <ul class="quiz-attempts-list">
+                        <% g.attempts.forEach(function (a) { %>
+                          <li>
+                            <a href="/teacher/quiz/<%= topic.id %>/attempt/<%= a.id %>">
+                              <%= formatDate(a.started_at, true) %> —
+                              <% if (a.status === 'in_progress') { %>
+                                в процессе
+                              <% } else if (a.status === 'expired') { %>
+                                истекло время<% if (a.max_score > 0) { %> (<%= a.score %> / <%= a.max_score %>)<% } %>
+                              <% } else { %>
+                                <%= a.score %> / <%= a.max_score %><% if (a.max_score > 0) { %> (<%= Math.round((a.score / a.max_score) * 100) %>%)<% } %>
+                              <% } %>
+                            </a>
+                          </li>
+                        <% }); %>
+                      </ul>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            <% }); %>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  <% } %>
+</div>
+<link rel="stylesheet" href="/css/quiz.css">
+<%- include('../../layout/footer') %>

@@ -1,0 +1,23 @@
+<%
+  const _page   = (typeof page   !== 'undefined') ? page   : 1;
+  const _pages  = (typeof pages  !== 'undefined') ? pages  : 1;
+  const _total  = (typeof total  !== 'undefined') ? total  : 0;
+  const _urlFn  = (typeof urlFn  === 'function')  ? urlFn  : null;
+%>
+<% if (_urlFn && _pages > 1) { %>
+  <div class="actions-row mt-md" style="justify-content: center;">
+    <% if (_page > 1) { %>
+      <a href="<%= _urlFn(_page - 1) %>" class="btn btn-secondary btn-sm">← Назад</a>
+    <% } else { %>
+      <span class="btn btn-ghost btn-sm" style="opacity: .4; cursor: default;">← Назад</span>
+    <% } %>
+    <span class="cell-secondary" style="align-self: center;">
+      Страница <%= _page %> из <%= _pages %> · всего <%= _total %>
+    </span>
+    <% if (_page < _pages) { %>
+      <a href="<%= _urlFn(_page + 1) %>" class="btn btn-secondary btn-sm">Вперёд →</a>
+    <% } else { %>
+      <span class="btn btn-ghost btn-sm" style="opacity: .4; cursor: default;">Вперёд →</span>
+    <% } %>
+  </div>
+<% } %>

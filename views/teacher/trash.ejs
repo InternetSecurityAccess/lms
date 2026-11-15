@@ -1,0 +1,69 @@
+<%- include('../layout/header', { title: 'Корзина' }) %>
+<div class="content-wrapper">
+  <%- include('../shared/page-top', {
+    title: 'Корзина',
+    actions: [{ href: '/subjects', label: '← Мои предметы' }],
+    flashes: [
+      ...(restored ? [{ type: 'green', text: 'Восстановлено.' }] : []),
+      ...(restoreErr ? [{ type: 'red', text: 'Не удалось восстановить: ' + restoreErr }] : [])
+    ]
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Здесь всё, что вы удалили. <strong>«Восстановить»</strong> вернёт объект на место
+    (deleted_at станет NULL).<br>
+    Полное удаление с диска — только администратор через <em>свою</em> корзину.
+  </div>
+  <% if (groups.length === 0) { %>
+    <%- include('../shared/ui/empty-state', {
+      primary: 'Корзина пуста.',
+      secondary: 'Удалённые предметы, задания и темы будут появляться здесь.',
+      action: { href: '/subjects', label: 'Мои предметы', class: 'btn-secondary' }
+    }) %>
+  <% } else { %>
+    <p class="cell-secondary">
+      Всего в корзине: <strong><%= total %></strong>.
+    </p>
+    <% groups.forEach((g) => { %>
+      <section class="card mb-3">
+        <div class="card-header">
+          <h2><%= g.label %> (<%= g.rows.length %>)</h2>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-50">ID</th>
+                <th>Название</th>
+                <th class="th-160">Удалено</th>
+                <th class="th-160"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% g.rows.forEach((r) => { %>
+                <tr>
+                  <td class="cell-secondary"><%= r.id %></td>
+                  <td>
+                    <div class="cell-primary"><%= r.title %></div>
+                    <% if (r.subtitle) { %><div class="cell-secondary"><%= r.subtitle %></div><% } %>
+                  </td>
+                  <td class="cell-secondary text-nowrap"><%= formatDate(r.deleted_at, true) %></td>
+                  <td>
+                    <form method="POST"
+                      action="/trash/<%= g.kind %>/<%= r.id %>/restore"
+                      class="inline-form"
+                      data-confirm="Восстановить «<%= r.title %>»?"
+                      data-confirm-ok-text="Восстановить"
+                      data-confirm-ok-class="success">
+                      <button type="submit" class="btn btn-success btn-sm">Восстановить</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    <% }) %>
+  <% } %>
+</div>
+<%- include('../layout/footer') %>

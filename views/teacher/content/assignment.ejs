@@ -1,0 +1,221 @@
+<%- include('../../layout/header', { title: assignment.title }) %>
+<%
+  const basePath = `/subjects/${subject.id}/assignments/${assignment.id}`;
+  const hasTopic = !!topic;
+  const hasTopicContent = hasTopic && !!(
+    (topic.description)
+    || (topic.attachments && topic.attachments.length)
+    || topic.content_url
+  );
+  const studentsInView = selectedGroup
+    ? students.filter((s) => String(s.group_id) === String(selectedGroup))
+    : students;
+  const acceptedIds = new Set(
+    works.filter((w) => w.status === 'accepted').map((w) => w.student_id)
+  );
+  const lastStatusByStudent = new Map();
+  for (const w of works) {
+    if (!lastStatusByStudent.has(w.student_id)) {
+      lastStatusByStudent.set(w.student_id, w.status);
+    }
+  }
+  const notAccepted = studentsInView.filter((s) => !acceptedIds.has(s.id));
+  const editHref = hasTopic
+    ? `/subjects/${subject.id}/topics/${topic.id}/edit`
+    : `/subjects/${subject.id}/assignments/${assignment.id}/edit`;
+  const isAssignmentFinished = assignment.status === 'finished';
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: assignment.title,
+    subtitle: hasTopic ? `Тема: ${topic.title}` : null,
+    actions: [
+      { href: editHref, label: 'Редактировать', class: 'btn-secondary btn-sm' },
+      {
+        label: 'Удалить',
+        class: 'btn-danger-soft btn-sm',
+        form: {
+          action: `${basePath}/delete`,
+          confirm: 'Удалить задание?\nЭто возможно только если по нему нет сдач. Иначе сервер вернёт 409 и предложит «Завершить».'
+        }
+      }
+    ],
+    back: { href: `/subjects/${subject.id}/assignments` },
+    flashes: [
+      ...(query.created ? [{ type: 'green', text: '<strong>Задание создано.</strong>' + (attachedGroups.length === 0 ? ' Но предмет не привязан к группам.' : '') }] : []),
+      ...(query.updated ? [{ type: 'green', text: 'Изменения сохранены.' }] : [])
+    ]
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    <strong>Принять</strong> — работа закрыта, студент не может присылать новые версии и писать в чат.<br>
+    <strong>Отклонить</strong> — студент сможет сдать новую версию и продолжить переписку.<br>
+    <strong>🤖 Сделано с ИИ</strong> — работа отклоняется с автоматическим сообщением студенту.
+    Если ошиблись — «Принять» снимает метку.<br>
+    <strong>Завершить задание</strong> — административная функция. Студенты видят его только для чтения,
+    новые сдачи невозможны. Чтобы возобновить — обратитесь к администратору.<br>
+    <strong>Перед завершением</strong> примите или отклоните все работы «На проверке» —
+    иначе студент попадёт в тупик: отклонено, а пересдать уже нельзя.
+  </div>
+  <% if (isAssignmentFinished) { %>
+    <div class="info-box info-box-yellow">
+      <strong>Задание завершено.</strong> Студенты видят его в «Моих заданиях» как «Завершено».
+      Существующие работы доступны для просмотра и переписки, но новые сдачи невозможны.
+      Завершить задание — административная функция; чтобы возобновить приём работ,
+      обратитесь к администратору.
+    </div>
+  <% } %>
+  <% if (hasTopicContent) { %>
+    <section class="card">
+      <div class="card-header">
+        <h2>Материал темы</h2>
+        <div class="actions-row">
+          <% if (topic.status === 'draft') { %>
+            <span class="status-badge status-warning">черновик</span>
+          <% } else if (topic.status === 'finished') { %>
+            <span class="status-badge status-muted">завершено</span>
+          <% } %>
+          <a href="/subjects/<%= subject.id %>/topics/<%= topic.id %>/edit"
+             class="btn btn-secondary btn-sm">Редактировать материал</a>
+        </div>
+      </div>
+      <% if (topic.description) { %>
+        <div class="topic-html">
+          <% const desc = String(topic.description); %>
+          <% if (desc.includes('<')) { %><%- sanitizeHtml(desc) %><% } else { %><div class="text-pre"><%= desc %></div><% } %>
+        </div>
+      <% } %>
+      <% if (topic.attachments && topic.attachments.length > 0) { %>
+        <%- include('../../shared/ui/attachments-list', {
+          items: topic.attachments, empty: '—'
+        }) %>
+      <% } %>
+      <% if (topic.content_url) { %>
+        <div class="info-box info-box-blue mt-2">
+          🔗 <a href="<%= topic.content_url %>" target="_blank" rel="noopener"><%= topic.content_url %></a>
+        </div>
+      <% } %>
+    </section>
+  <% } %>
+  <section class="card">
+    <div class="card-header">
+      <h2>Задание</h2>
+      <% if (isAssignmentFinished) { %>
+        <span class="status-badge status-muted">завершено</span>
+      <% } else if (assignment.status === 'draft') { %>
+        <span class="status-badge status-warning">черновик</span>
+      <% } %>
+    </div>
+    <div class="info-list">
+      <div>
+        <strong>Предмет</strong>
+        <span><a href="/subjects/<%= subject.id %>/topics"><%= subject.title %></a></span>
+      </div>
+      <div>
+        <strong>Группы</strong>
+        <span>
+          <% if (attachedGroups.length > 0) { %>
+            <%= attachedGroups.map((g) => g.name).join(', ') %>
+          <% } else { %>
+            <span class="cell-secondary">не привязан ни к одной</span>
+            · <a href="/subjects/<%= subject.id %>/groups">Привязать →</a>
+          <% } %>
+        </span>
+      </div>
+      <% if (assignment.deadline) { %>
+        <div><strong>Срок сдачи</strong><span><%= formatDate(assignment.deadline, true) %></span></div>
+      <% } %>
+      <% if (assignment.description) { %>
+        <div><strong>Описание</strong><span class="text-pre"><%= assignment.description %></span></div>
+      <% } %>
+      <div>
+        <strong>Файлы</strong>
+        <div>
+          <%- include('../../shared/ui/attachments-list', {
+            items: assignment.attachments || [], empty: '—'
+          }) %>
+        </div>
+      </div>
+      <% if (assignment.external_url) { %>
+        <div>
+          <strong>Ссылка на материалы</strong>
+          <a href="<%= assignment.external_url %>" target="_blank" rel="noopener"><%= assignment.external_url %></a>
+        </div>
+      <% } %>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Работы (<%= works.length %>)</h2></div>
+    <% if (attachedGroups.length > 1) { %>
+      <div class="filter-chips">
+        <a href="<%= basePath %>" class="chip <%= !selectedGroup ? 'active' : '' %>">Все группы</a>
+        <% attachedGroups.forEach((g) => { %>
+          <a href="<%= basePath %>?group=<%= g.id %>"
+             class="chip <%= String(selectedGroup) === String(g.id) ? 'active' : '' %>"><%= g.name %></a>
+        <% }) %>
+      </div>
+    <% } %>
+    <% if (works.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', { primary: 'Работ пока нет.', wrapper: false }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Студент</th>
+              <th>Группа</th>
+              <th>Тема</th>
+              <th class="th-80">Файлы</th>
+              <th class="th-120">Статус</th>
+              <th class="th-160">Дата</th>
+              <th class="th-140"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% works.forEach((w) => { %>
+              <tr>
+                <td><div class="cell-primary"><%= w.student_name %></div></td>
+                <td><%= w.group_name %></td>
+                <td><div><%= w.topic %></div></td>
+                <td><%= w.files_count %></td>
+                <td><%- include('../../shared/ui/status-badge', { status: w.status }) %></td>
+                <td class="cell-secondary text-nowrap"><%= formatDate(w.uploaded_at, true) %></td>
+                <td>
+                  <a href="/g/<%= w.group_id %>/works/<%= w.id %>" class="btn btn-primary btn-sm">
+                    Переписка
+                    <% if (w.unread_count > 0) { %>
+                      <span class="unread-badge"><%= w.unread_count %></span>
+                    <% } %>
+                  </a>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Кто ещё не сдал</h2></div>
+    <% if (notAccepted.length === 0) { %>
+      <div class="info-box info-box-green">Все работы приняты.</div>
+    <% } else { %>
+      <div class="cell-secondary">Не принято: <%= notAccepted.length %> из <%= studentsInView.length %></div>
+      <ul class="info-list mt-2">
+        <% notAccepted.forEach((s) => {
+          const st = lastStatusByStudent.get(s.id);
+        %>
+          <li>
+            <strong><%= s.name %></strong>
+            <span class="cell-secondary"> · <%= s.group_name %></span>
+            <% if (!st) { %><span class="status-badge status-pending">не сдано</span>
+            <% } else if (st === 'pending') { %><span class="status-badge status-pending">на проверке</span>
+            <% } else if (st === 'rejected') { %><span class="status-badge status-rejected">отклонено</span>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+<%- include('../../shared/ui/file-viewer') %>
+<%- include('../../layout/footer') %>
