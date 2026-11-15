@@ -1,0 +1,236 @@
+<%- include('../../layout/header', { title: subject.title }) %>
+<%
+  const _topicsHref = '/subjects/' + subject.id + '/topics';
+  const _groupsHref = '/subjects/' + subject.id + '/groups';
+  const _assignmentsHref = '/subjects/' + subject.id + '/assignments';
+  const _editHref = '/subjects/' + subject.id + '/edit';
+
+  const _flashes = [];
+  if (query.saved !== undefined) {
+    const _n = Number(query.saved);
+    if (_n > 0) {
+      _flashes.push({
+        type: 'green',
+        text: '<strong>Сохранено.</strong> Предмет привязан к <strong>' + _n + '</strong> '
+          + plural(_n, 'группе', 'группам', 'группам') + '.'
+      });
+    } else {
+      _flashes.push({
+        type: 'yellow',
+        text: '<strong>Сохранено.</strong> Предмет не привязан ни к одной группе — студенты его не видят.'
+      });
+    }
+  }
+  if (query.created) {
+    if (attachedCount === 0) {
+      _flashes.push({
+        type: 'green',
+        text: '<strong>Предмет создан.</strong> Осталось привязать его к группам.'
+      });
+    } else {
+      _flashes.push({
+        type: 'green',
+        text: '<strong>Предмет создан.</strong> Уже привязан к <strong>' + attachedCount + '</strong> '
+          + plural(attachedCount, 'группе', 'группам', 'группам') + '.'
+      });
+    }
+  }
+
+  let _statusCls = 'status-warning';
+  let _statusText = 'не привязан ни к одной';
+  if (attachedCount > 0) {
+    _statusCls = 'status-success';
+    _statusText = 'привязан к ' + attachedCount + ' ' + plural(attachedCount, 'группе', 'группам', 'группам');
+  }
+  const _notSubscribedPlural = plural(notSubscribed, 'группа', 'группы', 'групп');
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: subject.title,
+    subtitle: 'Группы',
+    actions: [
+      { href: _editHref, label: 'Редактировать', class: 'btn-secondary btn-sm' }
+    ],
+    back: { href: _topicsHref },
+    flashes: _flashes
+  }) %>
+  <div class="tabs">
+    <a href="<%= _topicsHref %>" class="tab">Темы (<%= counts.topics %>)</a>
+    <a href="<%= _groupsHref %>" class="tab active">Группы (<%= counts.groups %>)</a>
+    <a href="<%= _assignmentsHref %>" class="tab">Задания (<%= counts.assignments %>)</a>
+  </div>
+  <% if (subject.description) { %>
+    <div class="info-box info-box-blue"><%= subject.description %></div>
+  <% } %>
+  <div class="info-box info-box-blue info-box-how">
+    <strong>Группы, к которым привязан предмет.</strong>
+    Студенты отмеченных групп видят предмет, его темы и задания.<br>
+    <strong>Снять галочку + Сохранить</strong> — предмет отвязывается от группы:
+    темы и работы становятся readonly по снимку на момент закрытия.
+    Студенты сохраняют доступ к истории.<br>
+    <strong>Чтобы вернуть группу</strong> — снова отметьте её галочкой и сохраните.
+    Всё станет активно: работы сохранят статусы, темы — по текущим правилам.<br>
+    Если группы нет в списке — сначала отметьте «Моя группа» в разделе «Все группы».
+  </div>
+  <% if (notSubscribed > 0) { %>
+    <div class="info-box info-box-yellow">
+      <strong><%= notSubscribed %></strong> <%= _notSubscribedPlural %>
+      привязаны к предмету, но вы на них не подписаны.
+      Нажмите <strong>«Подписаться»</strong> рядом с группой или отметьте нужные
+      галочки и нажмите <strong>«Сохранить»</strong>.
+    </div>
+  <% } %>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Группы предмета</h2>
+      <span class="status-badge <%= _statusCls %>"><%= _statusText %></span>
+    </div>
+    <% if (allGroups.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', {
+        primary: 'Нет ни одной группы, которую можно привязать.',
+        secondary: 'Отметьте «Моя группа» в разделе «Все группы».',
+        action: { href: '/groups', label: 'К группам', class: 'btn-primary' },
+        wrapper: false
+      }) %>
+    <% } else { %>
+      <form method="POST" action="<%= _groupsHref %>" id="groupsForm">
+        <div class="group-cards">
+          <% allGroups.forEach((g) => {
+            const _studentsPlural = plural(g.students_count, 'студент', 'студента', 'студентов');
+            const _worksPlural = plural(g.works_count, 'сдача', 'сдачи', 'сдач');
+            const _initial = g.attached ? '1' : '0';
+            const _subscribed = g.subscribed ? '1' : '0';
+            const _checkedAttr = g.attached ? 'checked' : '';
+            const _needsSubscribe = g.attached && !g.subscribed;
+          %>
+            <div class="group-card">
+              <label class="checkbox-row group-card-label">
+                <input type="checkbox" name="group_ids" value="<%= g.id %>"
+                  <%= _checkedAttr %>
+                  data-initial="<%= _initial %>"
+                  data-subscribed="<%= _subscribed %>"
+                  data-group-name="<%= g.name %>">
+                <span class="group-card-body">
+                  <span class="group-card-title">
+                    <strong><%= g.name %></strong>
+                    <% if (!g.subscribed) { %>
+                      <span class="status-badge status-warning">не подписаны</span>
+                    <% } %>
+                  </span>
+                  <span class="cell-secondary">
+                    <%= g.students_count %> <%= _studentsPlural %>
+                    · <%= g.works_count %> <%= _worksPlural %>
+                    <% if (g.pending_count > 0) { %>
+                      · <span class="status-badge status-pending">на проверке: <%= g.pending_count %></span>
+                    <% } %>
+                  </span>
+                </span>
+              </label>
+              <% if (_needsSubscribe) { %>
+                <button type="submit"
+                        form="subscribeForm-<%= g.id %>"
+                        class="btn btn-secondary btn-sm">
+                  Подписаться
+                </button>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+        <div class="actions-row mt-md">
+          <button type="submit" id="groupsSaveBtn" class="btn btn-success" disabled>Сохранить привязки</button>
+          <span id="groupsSaveStatus" class="cell-secondary"></span>
+        </div>
+      </form>
+      <% allGroups.forEach((g) => { %>
+        <% if (g.attached && !g.subscribed) { %>
+          <form id="subscribeForm-<%= g.id %>" method="POST"
+                action="/subjects/<%= subject.id %>/subscribe/<%= g.id %>"
+                class="hidden"></form>
+        <% } %>
+      <% }) %>
+    <% } %>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const form = document.getElementById('groupsForm');
+  if (!form) return;
+  const saveBtn = document.getElementById('groupsSaveBtn');
+
+  // При сабмите проверяем снятые галочки: были привязаны (data-initial=1),
+  // а сейчас не отмечены. Показываем детальное предупреждение.
+  form.addEventListener('submit', async (e) => {
+    if (form.dataset.confirmed === '1') return;
+    const unchecked = [];
+    form.querySelectorAll('input[name="group_ids"][data-initial="1"]').forEach((cb) => {
+      if (!cb.checked) {
+        unchecked.push(cb.dataset.groupName || cb.value);
+      }
+    });
+    if (unchecked.length === 0) return;
+    e.preventDefault();
+    const list = unchecked.join(', ');
+    const msg = `Предмет будет отвязан от ${unchecked.length} `
+      + `${unchecked.length === 1 ? 'группы' : 'групп'}: ${list}.\n\n`
+      + `Их содержимое станет readonly: студенты смогут смотреть темы и работы, `
+      + `но не смогут сдавать новые или писать в чат. История сохранится.\n\n`
+      + `Чтобы вернуть группу, отметьте её галочкой снова и сохраните.\n\n`
+      + `Продолжить?`;
+    const ok = await window.confirmAsync(msg, {
+      title: 'Отвязать группы от предмета?',
+      okText: 'Отвязать',
+      okClass: 'warning',
+    });
+    if (!ok) return;
+    form.dataset.confirmed = '1';
+    form.requestSubmit();
+  });
+})();
+</script>
+
+<style>
+  .group-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+  }
+  .group-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+  }
+  .group-card-label {
+    align-items: flex-start;
+    gap: var(--space-2);
+    cursor: pointer;
+    min-width: 0;
+  }
+  .group-card-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+  }
+  .group-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .group-card-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+  }
+</style>
+<%- include('../../layout/footer') %>

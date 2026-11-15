@@ -1,0 +1,9 @@
+<%
+  const _type = (typeof type !== 'undefined') ? type : 'blue';
+  const _html = (typeof html !== 'undefined') ? html : null;
+  const _text = (typeof text !== 'undefined') ? text : null;
+  const _how  = (typeof how  !== 'undefined' && how) ? ' info-box-how' : '';
+%>
+<div class="info-box info-box-<%= _type %><%= _how %>">
+  <% if (_html) { %><%- sanitizeHtml(_html) %><% } else { %><%= _text %><% } %>
+</div>

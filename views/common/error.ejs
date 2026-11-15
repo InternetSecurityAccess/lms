@@ -1,0 +1,25 @@
+<%
+  const _backUrl = (typeof backUrl !== 'undefined' && backUrl) ? backUrl : '/';
+  const _backLabel = (typeof backLabel !== 'undefined' && backLabel) ? backLabel : 'На главную';
+  const _title = (typeof title !== 'undefined' && title) ? title : 'Ошибка';
+  const _message = (typeof message !== 'undefined' && message) ? message : 'Не удалось выполнить запрос.';
+  const _hints = (typeof hints !== 'undefined' && Array.isArray(hints) && hints.length > 0)
+    ? hints : null;
+%>
+<%- include('../layout/header', { title: _title }) %>
+<div class="content-wrapper narrow">
+  <section class="card card-narrow">
+    <h1 class="text-error mb-2"><%= _title %></h1>
+    <p class="text-secondary mb-3"><%= _message %></p>
+    <% if (_hints) { %>
+      <div class="info-box info-box-blue" style="text-align: left; margin-bottom: var(--space-3);">
+        <strong>Что можно сделать:</strong>
+        <ul class="hint-list" style="margin-top: var(--space-2);">
+          <% _hints.forEach((h) => { %><li><%= h %></li><% }) %>
+        </ul>
+      </div>
+    <% } %>
+    <a href="<%= _backUrl %>" class="btn btn-primary"><%= _backLabel %></a>
+  </section>
+</div>
+<%- include('../layout/footer') %>

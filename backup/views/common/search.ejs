@@ -1,0 +1,91 @@
+<%- include('../layout/header', { title: 'Поиск' }) %>
+<%
+  const searchTitle = q ? `Поиск: «${q}»` : 'Поиск';
+%>
+<div class="content-wrapper">
+  <%- include('../shared/page-top', { title: searchTitle }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Поиск идёт только по разделам, к которым у вас есть доступ: предметы,
+    темы, задания, работы, объявления. Гость видит пустой результат — сначала
+    войдите в систему.<br>
+    <strong>Быстрый переход:</strong> если ищете конкретного преподавателя — проще
+    через «Мои преподаватели».
+  </div>
+  <form method="GET" action="/search" class="inline-add-form">
+    <input type="search" name="q" value="<%= q %>" required maxlength="100"
+      placeholder="Предмет, тема, задание, работа, объявление" class="search-input-400">
+    <button type="submit" class="btn btn-primary">Найти</button>
+  </form>
+  <% if (!q) { %>
+    <div class="info-box info-box-blue">Введите запрос. Поиск идёт по доступным вам разделам.</div>
+  <% } else if (total === 0) { %>
+    <section class="card">
+      <div class="empty-state"><p>Ничего не найдено по запросу «<%= q %>».</p></div>
+    </section>
+  <% } else { %>
+    <div class="info-box info-box-green">Найдено: <strong><%= total %></strong>.</div>
+    <% if (result.subjects.length) { %>
+      <section class="card">
+        <div class="card-header"><h2>Предметы (<%= result.subjects.length %>)</h2></div>
+        <ul class="info-list">
+          <% result.subjects.forEach((s) => { %>
+            <li>
+              <strong><%= s.title %></strong>
+              <% if (s.teacher_name) { %><span class="cell-secondary">· <%= s.teacher_name %></span><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+    <% if (result.topics.length) { %>
+      <section class="card">
+        <div class="card-header"><h2>Темы (<%= result.topics.length %>)</h2></div>
+        <ul class="info-list">
+          <% result.topics.forEach((t) => { %>
+            <li><strong><%= t.title %></strong> <span class="cell-secondary">· <%= t.subject_title %></span></li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+    <% if (result.assignments.length) { %>
+      <section class="card">
+        <div class="card-header"><h2>Задания (<%= result.assignments.length %>)</h2></div>
+        <ul class="info-list">
+          <% result.assignments.forEach((a) => { %>
+            <li><strong><%= a.title %></strong> <span class="cell-secondary">· <%= a.subject_title %></span></li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+    <% if (result.works.length) { %>
+      <section class="card">
+        <div class="card-header"><h2>Работы (<%= result.works.length %>)</h2></div>
+        <ul class="info-list">
+          <% result.works.forEach((w) => { %>
+            <li>
+              <strong><%= w.topic %></strong>
+              <span class="cell-secondary">
+                <% if (w.student_name) { %>· <%= w.student_name %><% } %>
+                <% if (w.teacher_name) { %>· <%= w.teacher_name %><% } %>
+              </span>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+    <% if (result.announcements.length) { %>
+      <section class="card">
+        <div class="card-header"><h2>Объявления (<%= result.announcements.length %>)</h2></div>
+        <ul class="info-list">
+          <% result.announcements.forEach((a) => { %>
+            <li>
+              <strong><%= a.title %></strong>
+              <span class="cell-secondary">· <%= a.teacher_name || a.group_name %> · <%= new Date(a.created_at).toLocaleDateString('ru-RU') %></span>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+  <% } %>
+</div>
+<%- include('../layout/footer') %>

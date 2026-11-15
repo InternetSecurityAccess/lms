@@ -1,0 +1,57 @@
+<% layout('layout/page') -%>
+<% block('title', 'Результат: ' + attempt.quiz_title) -%>
+
+<div class="card">
+  <div class="card-header">
+    <h2>Результат теста</h2>
+  </div>
+  <div class="card-body">
+    <div class="quiz-result-hero <%= verdict === 'Сдал' ? 'pass' : 'fail' %>">
+      <div class="score"><%= scorePercent %>%</div>
+      <div class="percent">от <%= attempt.max_score %> баллов</div>
+      <div class="verdict"><%= verdict %></div>
+      <% if (attempt.status === 'expired') { %>
+        <div style="margin-top: 12px; font-size: 14px; color: var(--warning);">⏰ Время вышло, ответы отправлены автоматически.</div>
+      <% } %>
+    </div>
+
+    <% if (quiz.show_correct) { %>
+      <h3 style="margin-top: 32px;">Разбор ответов</h3>
+      <% questionList.forEach((q, idx) => { %>
+        <div class="quiz-review-q">
+          <div class="q-text"><%= idx + 1 %>. <%- q.q_text %></div>
+          <% if (q.image_stored_name) { %><img src="/file/quiz-image/question/<%= q.id %>" style="max-width: 100%; margin: 8px 0;"><% } %>
+          <div class="quiz-review-opts">
+            <% q.options.forEach(opt => { %>
+              <div class="quiz-review-opt <%= opt.is_correct ? 'is-correct' : '' %>">
+                <span class="marker">
+                  <% const res = results.find(r => r.question_id === q.id); 
+                     const userPicked = res?.score && (
+                       (q.type === 'single' && '<%= opt.id %>' === (res?.answer?.option_id || '')) ||
+                       (q.type === 'multiple' && (res?.answer?.option_ids || '').split(',').includes('<%= opt.id %>'))
+                     );
+                  %>
+                  <% if (q.type === 'single' || q.type === 'multiple') { %>
+                    <% if (opt.is_correct && userPicked) { %>✓<% } %>
+                    <% if (opt.is_correct && !userPicked) { %>○<% } %>
+                    <% if (!opt.is_correct && userPicked) { %>✗<% } %>
+                    <% if (!opt.is_correct && !userPicked) { %>·<% } %>
+                  <% } %>
+                </span>
+                <span><%- opt.text %></span>
+                <% if (opt.image) { %><img src="/file/quiz-image/option/<%= opt.id %>" style="max-width: 100px; margin-left: 8px;"><% } %>
+              </div>
+            <% }) %>
+          </div>
+          <div style="margin-top: 8px; font-size: 14px;">Баллы: <strong><%= results.find(r => r.question_id === q.id)?.score || 0 %> / <%= q.points %></strong></div>
+        </div>
+      <% }) %>
+    <% } %>
+
+    <div class="actions-row" style="margin-top: 32px;">
+      <a href="/student/my-assignments" class="btn btn-secondary">К моим заданиям</a>
+    </div>
+  </div>
+</div>
+
+<script src="/js/quiz-attempt.js"></script>

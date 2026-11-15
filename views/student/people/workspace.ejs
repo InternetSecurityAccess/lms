@@ -1,0 +1,130 @@
+<%- include('../../layout/header', { title: teacher.name }) %>
+<%
+  const buildUrl_ = (overrides = {}) => buildUrl(
+    `/t/${teacher.id}`,
+    { q: q || '', status: statusFilter || '', sort: sort || '', subjects_q: subjectsQ || '' },
+    overrides
+  );
+%>
+<div class="content-wrapper">
+<nav class="breadcrumb">
+  <a href="/my-teachers">Мои преподаватели</a> <span><%= teacher.name %></span>
+</nav>
+  <div class="workspace-bar">
+    <div>
+      <h1 class="top-bar-title"><%= teacher.name %></h1>
+    </div>
+    <div class="top-bar-actions">
+      <% if (teacher.max_url) { %>
+        <a href="<%= teacher.max_url %>" target="_blank" rel="noopener noreferrer"
+           class="btn btn-secondary">
+          Канал MAX
+        </a>
+      <% } %>
+      <a href="/my-assignments?teacher=<%= teacher.id %>" class="btn btn-primary">Все задания (<%= assignments.length %>)</a>
+    </div>
+  </div>
+  <% if (newSubmissionId) { %>
+    <div class="info-box info-box-green">Работа успешно загружена.</div>
+  <% } %>
+<% if (!isRelated) { %>
+  <div class="info-box info-box-yellow" role="status">
+    <strong>Этот преподаватель не ведёт вашу группу и не прикрепил к ней ни одного предмета.</strong>
+    Материалы ниже могут быть недоступны. Если вы ожидаете лекции или задания — обратитесь
+    к преподавателю или в поддержку.
+  </div>
+<% } %>
+  <div class="info-box info-box-blue info-box-how">
+    Предметы и задания преподавателя для вашей группы. Внутри предмета —
+    лекции, темы и материалы. Задания — на отдельной странице, там же кнопка «Сдать».<br>
+    <strong>Нет нужного предмета?</strong> Попросите преподавателя привязать предмет
+    к вашей группе — до этого он не появится.
+  </div>
+  <% if ((subjects && subjects.length > 0) || subjectsQ) { %>
+    <section class="card">
+      <div class="card-header">
+        <h2>Предметы и лекции (<%= subjects ? subjects.length : 0 %>)</h2>
+        <a href="/my-subjects" class="btn btn-ghost btn-sm">Мои предметы →</a>
+      </div>
+      <form method="GET" action="/t/<%= teacher.id %>" class="inline-add-form mb-2">
+        <input type="search" name="subjects_q" value="<%= subjectsQ || '' %>"
+          placeholder="Поиск по названию или описанию предмета"
+          maxlength="100" class="search-input-280">
+        <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+        <% if (subjectsQ) { %>
+          <a href="<%= buildUrl_({ subjects_q: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+        <% } %>
+      </form>
+      <% if (!subjects || subjects.length === 0) { %>
+        <div class="empty-state">
+          <% if (subjectsQ) { %>
+            <p>Ничего не найдено по запросу «<%= subjectsQ %>».</p>
+            <a href="<%= buildUrl_({ subjects_q: '' }) %>" class="btn btn-secondary mt-3">Сбросить поиск</a>
+          <% } else { %>
+            <p>Преподаватель пока не прикрепил ни одного предмета к вашей группе.</p>
+          <% } %>
+        </div>
+      <% } else { %>
+        <div class="card-grid">
+          <% subjects.forEach((s) => { %>
+            <a href="/t/<%= teacher.id %>/subjects/<%= s.id %>" class="entity-card">
+              <div class="entity-card-title"><%= s.title %></div>
+              <% if (s.description) { %>
+                <div class="entity-card-subtitle"><%= s.description.slice(0, 100) %><%= s.description.length > 100 ? '…' : '' %></div>
+              <% } %>
+              <div class="entity-card-stats">
+                <span>Тем: <%= s.topics_count %></span>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+      <% } %>
+    </section>
+  <% } %>
+  <section class="card">
+    <div class="card-header">
+      <h2>Задания (<%= assignments.length %>)</h2>
+      <% if (assignments.length > 0) { %>
+        <a href="/my-assignments?teacher=<%= teacher.id %>" class="btn btn-ghost btn-sm">Все задания →</a>
+      <% } %>
+    </div>
+    <% if (assignments.length === 0) { %>
+      <div class="empty-state">
+        <p>У этого преподавателя нет активных заданий.</p>
+        <p class="cell-secondary">Завершённые задания — в <a href="/my-study">«Всей учёбе»</a>.</p>
+      </div>
+    <% } else { %>
+      <div class="card-grid">
+        <% assignments.forEach((a) => {
+          const st =
+            a.my_last_status === 'accepted' ? { cls: 'accepted', label: 'принято' }
+            : a.my_last_status === 'rejected' ? { cls: 'rejected', label: 'отклонено' }
+            : a.my_last_status === 'pending' ? { cls: 'pending', label: 'на проверке' }
+            : { cls: 'pending', label: 'не сдано' };
+        %>
+          <a href="/t/<%= teacher.id %>/assignments/<%= a.id %>" class="entity-card">
+            <div class="entity-card-title"><%= a.title %></div>
+            <% if (a.subject_title) { %>
+              <div class="entity-card-subtitle">Предмет: <%= a.subject_title %></div>
+            <% } %>
+            <% if (a.description) { %>
+              <div class="entity-card-subtitle text-pre"><%= a.description.slice(0, 200) %></div>
+            <% } %>
+            <div class="entity-card-stats">
+              <% if (a.deadline) { %>
+                <span>до <%= formatDate(a.deadline, true) %></span>
+              <% } else { %>
+                <span class="cell-secondary">без срока сдачи</span>
+              <% } %>
+              <span class="status-badge status-<%= st.cls %>"><%= st.label %></span>
+              <% if (a.my_works_count > 1) { %>
+                <span class="cell-secondary">работ: <%= a.my_works_count %></span>
+              <% } %>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

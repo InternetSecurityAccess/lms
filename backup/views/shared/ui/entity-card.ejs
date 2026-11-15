@@ -1,0 +1,30 @@
+<%
+  const _href = (typeof href !== 'undefined') ? href : null;
+  const _title = (typeof title !== 'undefined') ? title : '';
+  const _subtitle = (typeof subtitle !== 'undefined') ? subtitle : null;
+  const _stats = (typeof stats !== 'undefined' && Array.isArray(stats)) ? stats : [];
+  const _warning = (typeof warning !== 'undefined') ? warning : null;
+%>
+<% if (_href) { %>
+  <a href="<%= _href %>" class="entity-card">
+    <div class="entity-card-title"><%= _title %></div>
+    <% if (_subtitle) { %><div class="entity-card-subtitle"><%= _subtitle %></div><% } %>
+    <% if (_stats.length) { %>
+      <div class="entity-card-stats">
+        <% _stats.forEach((s) => { %><span><%= s %></span><% }) %>
+      </div>
+    <% } %>
+    <% if (_warning) { %><div class="cell-secondary mt-1 text-warning">⚠ <%= _warning %></div><% } %>
+  </a>
+<% } else { %>
+  <div class="entity-card">
+    <div class="entity-card-title"><%= _title %></div>
+    <% if (_subtitle) { %><div class="entity-card-subtitle"><%= _subtitle %></div><% } %>
+    <% if (_stats.length) { %>
+      <div class="entity-card-stats">
+        <% _stats.forEach((s) => { %><span><%= s %></span><% }) %>
+      </div>
+    <% } %>
+    <% if (typeof content !== 'undefined') { %><%- content %><% } %>
+  </div>
+<% } %>

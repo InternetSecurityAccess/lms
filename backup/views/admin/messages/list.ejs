@@ -1,0 +1,74 @@
+<%- include('../../layout/header', { title: 'Обращения' }) %>
+<%
+  const baseQuery = { q: q || '', filter: filter || 'all' };
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Обращения в поддержку',
+    actions: [{ href: '/admin', label: '← В админку' }]
+  }) %>
+  <%- include('../../shared/ui/filter-chips', {
+    items: [
+      { href: buildUrl('/admin/support', baseQuery, { filter: 'all' }),    label: `Все (${counts.total})`,              active: filter === 'all' },
+      { href: buildUrl('/admin/support', baseQuery, { filter: 'unread' }), label: `С непрочитанными (${counts.unread})`, active: filter === 'unread' }
+    ]
+  }) %>
+  <form method="GET" action="/admin/support" class="inline-add-form">
+    <input type="hidden" name="filter" value="<%= filter %>">
+    <input type="search" name="q" value="<%= q %>" placeholder="Поиск по ФИО" maxlength="100" class="search-input">
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q) { %><a href="<%= buildUrl('/admin/support', baseQuery, { q: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a><% } %>
+  </form>
+  <% if (threads.length === 0) { %>
+    <%- include('../../shared/ui/empty-state', { primary: 'Обращений не найдено.' }) %>
+  <% } else { %>
+    <div class="info-box info-box-blue info-box-how">
+      клик по строке открывает обращение.
+    </div>
+    <section class="card">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Пользователь</th>
+              <th>Последнее сообщение</th>
+              <th class="th-130">Непрочитанных</th>
+              <th class="th-160">Когда</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% threads.forEach((t) => { %>
+              <tr data-href="/admin/support/<%= t.id %>" class="clickable-row">
+                <td>
+                  <div class="cell-primary"><%= t.student_name || t.teacher_name || '—' %></div>
+                  <div class="cell-secondary"><%= t.student_id ? 'Студент' : 'Преподаватель' %></div>
+                </td>
+                <td>
+                  <% if (t.last_message) { %>
+                    <div class="cell-secondary">
+                      <strong><%= t.last_sender === 'admin' ? 'Вы' : 'Пользователь' %>:</strong>
+                      <%= t.last_message.slice(0, 80) %><%= t.last_message.length > 80 ? '…' : '' %>
+                    </div>
+                  <% } else { %>
+                    <span class="cell-secondary">—</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (t.unread_count > 0) { %>
+                    <span class="unread-badge"><%= t.unread_count %></span>
+                  <% } else { %>
+                    <span class="cell-secondary">—</span>
+                  <% } %>
+                </td>
+                <td class="cell-secondary text-nowrap">
+                  <%= formatDate(t.last_message_at || t.created_at, true) %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+</div>
+<%- include('../../layout/footer') %>

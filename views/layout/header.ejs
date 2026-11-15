@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title><%= (typeof title !== 'undefined' && title) ? `${title} — ` : '' %><%= college.SYSTEM_NAME %> <%= college.SHORT %></title>
+  <%# ── Шрифты подключаются локально (см. public/css/fonts.css). ── %>
+  <%# ── fonts.css идёт ПЕРЕД college.css: @font-face должен быть известен ── %>
+  <%# ── до того, как college.css начнёт использовать 'Ubuntu'. ── %>
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/quiz.css">
+  <link rel="stylesheet" href="/css/college.css">
+  <% if ((currentPath || '').startsWith('/admin')) { %>
+    <link rel="stylesheet" href="/css/admin.css">
+  <% } %>
+  <script src="/js/theme.js" defer></script>
+  <%- (typeof headExtra !== 'undefined' && headExtra) ? headExtra : '' %>
+</head>
+<body class="college-body<%= (currentPath || '').startsWith('/admin') ? ' admin-body' : '' %>">
+  <% if (typeof demoMode !== 'undefined' && demoMode) { %>
+    <div class="demo-banner">
+      🎭 Демо-режим · данные тестовые · не используйте для реальной работы
+    </div>
+  <% } %>
+  <%
+    const isAuthed = !!(session?.adminId || session?.teacherId || session?.studentId);
+    const isRegularUser = !!(session?.studentId || session?.teacherId);
+    const homeHref = session?.adminId ? '/admin'
+                   : session?.teacherId ? '/my-groups'
+                   : session?.studentId ? '/my-teachers'
+                   : '/';
+    const profileHref = session?.adminId ? '/admin/profile'
+  : (session?.teacherId || session?.studentId) ? '/my-profile'
+  : '/login';
+    const logoutAction = session?.adminId ? '/admin/logout' : '/logout';
+    const userName = session?.adminName || session?.studentName || session?.teacherName || '';
+    const brandTitle = `${college.NAME} ${college.SHORT_NAME} · ${college.SYSTEM_NAME} (${college.SYSTEM_FULL})`;
+    const hideNav = currentPath === '/login'
+      || currentPath.startsWith('/login/')
+      || currentPath === '/register'
+      || currentPath === '/admin/login';
+  %>
+  <header class="college-header<%= hideNav ? ' college-header-minimal' : '' %>">
+    <div class="college-header-top">
+      <div class="college-header-inner">
+        <a class="college-brand" href="<%= homeHref %>" title="<%= brandTitle %>">
+          <img class="college-logo" src="/img/college-logo.svg" alt="<%= college.SHORT %>"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <span class="college-emblem" style="display: none;"><%= (college.SHORT || '?').charAt(0) %></span>
+          <div class="college-titles">
+            <span class="college-official"><%= college.NAME %></span>
+            <span class="college-name"><%= college.SHORT_NAME %></span>
+            <span class="college-system"><%= college.SYSTEM_NAME %> — <%= college.SYSTEM_FULL %></span>
+          </div>
+        </a>
+        <div class="college-header-actions">
+          <% if (isAuthed) { %>
+            <a href="/search" class="theme-toggle" title="Поиск">Поиск</a>
+          <% } %>
+          <a href="/help" class="theme-toggle" title="Помощь">
+            Помощь
+            <% if (isRegularUser) { %>
+              <span class="unread-badge"
+                    data-nav-badge-value="supportUnreadCount"
+                    style="margin-left: var(--space-1); <%= supportUnreadCount > 0 ? '' : 'display: none;' %>"><%= supportUnreadCount || 0 %></span>
+            <% } %>
+          </a>
+<button type="button" id="themeToggle" class="theme-toggle" aria-label="Тема">Тема</button>
+          <% if (session?.adminId) { %>
+            <a href="<%= profileHref %>" class="college-user" title="Профиль">
+              <span class="college-user-avatar" style="background: var(--error);">A</span>
+              <span><%= userName %></span>
+            </a>
+          <% } else if (session?.studentId) { %>
+            <a href="<%= profileHref %>" class="college-user" title="Профиль">
+              <span class="college-user-avatar"><%= (userName || 'С').charAt(0) %></span>
+              <span><%= userName %></span>
+            </a>
+          <% } else if (session?.teacherId) { %>
+            <a href="<%= profileHref %>" class="college-user" title="Профиль">
+              <span class="college-user-avatar"><%= (userName || 'П').charAt(0) %></span>
+              <span><%= userName %></span>
+            </a>
+          <% } %>
+          <% if (isAuthed) { %>
+            <form action="<%= logoutAction %>" method="POST" class="header-logout-form">
+              <button type="submit" class="theme-toggle theme-toggle-logout" title="Выйти">Выйти</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    <% if (!hideNav) { %>
+      <div class="college-nav-bar">
+        <nav class="college-nav-inner" aria-label="Основное меню">
+          <%
+            function isActive(item) {
+              if (item.titles && title && item.titles.includes(title)) return true;
+              if (item.exact) return currentPath === item.href;
+              if (item.href === '/') return currentPath === '/';
+              return currentPath === item.href
+                || (currentPath || '').startsWith(item.href + '/');
+            }
+            let firstItem = true;
+          %>
+          <% navItems.forEach((item) => { %>
+            <% if (item.section) { %>
+              <% if (!firstItem) { %><span class="nav-divider" aria-hidden="true"></span><% } %>
+            <% } else if (item.href) { %>
+              <a href="<%= item.href %>"
+                 class="college-nav-link <%= isActive(item) ? 'active' : '' %>"
+                 <% if (item.badge) { %>data-nav-badge="<%= item.badge %>"<% } %>>
+                <%= item.label %>
+                <% if (item.badge) { %>
+                  <span class="unread-badge"
+                        data-nav-badge-value="<%= item.badge %>"
+                        style="margin-left: var(--space-1); <%= item.badgeValue > 0 ? '' : 'display: none;' %>"><%= item.badgeValue || 0 %></span>
+                <% } %>
+              </a>
+              <% firstItem = false; %>
+            <% } %>
+          <% }) %>
+        </nav>
+      </div>
+    <% } %>
+  </header>
+  <main class="college-main">

@@ -1,0 +1,38 @@
+  </main>
+  <footer class="college-footer">
+    <div class="college-footer-inner">
+      © <%= new Date().getFullYear() %> <%= college.SHORT %>
+      <span class="sep">·</span>
+      <span><%= college.ADDRESS %></span>
+      <span class="sep">·</span>
+      <a href="tel:<%= String(college.PHONE).replace(/[^\d+]/g, '') %>">Тел. <%= college.PHONE %></a>
+      <span class="sep">·</span>
+      <a href="mailto:<%= college.EMAIL %>"><%= college.EMAIL %></a>
+    </div>
+  </footer>
+  <link rel="stylesheet" href="/css/upload-indicator.css">
+  <script>window.__files = <%- JSON.stringify(filesClient) %>;</script>
+  <script>window.__quillConfig = <%- JSON.stringify(quillConfig || {}) %>;</script>
+  <script src="/js/confirm.js" defer></script>
+  <script src="/js/modal-open.js" defer></script>
+  <script src="/js/unsaved-guard.js" defer></script>
+  <script src="/js/file-remove-toggle.js" defer></script>
+  <script src="/js/chat-reply.js" defer></script>
+  <script src="/js/login-tabs.js" defer></script>
+  <script src="/js/student-login-type.js" defer></script>
+  <script src="/js/groups-save-indicator.js" defer></script>
+  <script src="/js/lecture-fullscreen.js" defer></script>
+  <script src="/js/quill-init.js" defer></script>
+  <script src="/js/subscribe.js" defer></script>
+  <script src="/js/catalog-groups-batch.js" defer></script>
+  <script src="/js/counters.js" defer></script>
+  <script src="/js/file-rules.js" defer></script>
+  <script src="/js/file-validate.js" defer></script>
+  <script src="/js/dragdrop.js" defer></script>
+  <script src="/js/bulk-actions.js" defer></script>
+  <script src="/js/form-upload-indicator.js" defer></script>
+  <% if ((currentPath || '').startsWith('/admin')) { %>
+    <script src="/js/admin-table.js" defer></script>
+  <% } %>
+</body>
+</html>

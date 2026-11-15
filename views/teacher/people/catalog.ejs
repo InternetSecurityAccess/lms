@@ -1,0 +1,89 @@
+<%- include('../../layout/header', { title: 'Все группы' }) %>
+<%
+  const flashes = [];
+  if (savedInfo) {
+    const parts = [];
+    if (savedInfo.added > 0) parts.push(`добавлено: ${savedInfo.added}`);
+    if (savedInfo.removed > 0) parts.push(`отвязано: ${savedInfo.removed}`);
+    const pluralWord = plural(savedInfo.total, 'группа', 'группы', 'групп');
+    const text = parts.length > 0
+      ? `<strong>Сохранено.</strong> ${savedInfo.total} ${pluralWord} (${parts.join(', ')}).`
+      : `<strong>Сохранено.</strong> ${savedInfo.total} ${pluralWord}.`;
+    flashes.push({ type: 'green', text });
+  }
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Все группы',
+    actions: [
+      ...(myCount > 0 ? [{ href: '/my-groups', label: `Мои группы (${myCount})`, class: 'btn-primary' }] : [])
+    ],
+    flashes
+  }) %>
+  <form method="GET" action="/groups" class="inline-add-form">
+    <input type="search" name="q" value="<%= q %>" placeholder="Поиск по названию группы" maxlength="100" class="search-input">
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q) { %><a href="/groups" class="btn btn-ghost btn-sm">Сбросить</a><% } %>
+  </form>
+  <div class="info-box info-box-blue info-box-how">
+    отметьте нужные группы галочками и нажмите <strong>«Сохранить»</strong>.
+    Отмеченные группы появятся в «Моих группах», и все их студенты автоматически
+    подпишутся на вас. Снятие галочки ничего не удаляет — просто отвязывает группу.
+  </div>
+  <section class="card">
+    <div class="card-header"><h2>Группы (<%= groups.length %>)</h2></div>
+    <% if (groups.length === 0) { %>
+      <div class="empty-state">Ничего не найдено.</div>
+    <% } else { %>
+      <div id="catalogGroupsForm">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-50">Моя</th>
+                <th>Группа</th>
+                <th class="th-100">Студентов</th>
+                <th class="th-100">Моих работ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% groups.forEach((g) => { %>
+                <tr>
+                  <td>
+                    <label class="subscribe">
+                      <input type="checkbox"
+                        class="catalog-group-checkbox"
+                        value="<%= g.id %>"
+                        data-initial="<%= g.is_subscribed ? '1' : '0' %>"
+                        data-works-count="<%= g.my_works_count || 0 %>"
+                        data-group-name="<%= g.name %>"
+                        <%= g.is_subscribed ? 'checked' : '' %>
+                        aria-label="Моя группа: <%= g.name %>">
+                    </label>
+                  </td>
+                  <td><div class="cell-primary"><%= g.name %></div></td>
+                  <td><%= g.students_count %></td>
+                  <td>
+                    <% if (g.my_works_count > 0) { %>
+                      <%= g.my_works_count %>
+                      <% if (g.my_pending_count > 0) { %>
+                        <span class="status-badge status-pending"><%= g.my_pending_count %></span>
+                      <% } %>
+                    <% } else { %>
+                      <span class="cell-secondary">—</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="actions-row" style="margin-top: var(--space-3);">
+          <button type="button" id="catalogGroupsSave" class="btn btn-success" disabled>Сохранить</button>
+          <span id="catalogGroupsStatus" class="cell-secondary"></span>
+        </div>
+      </div>
+    <% } %>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

@@ -1,0 +1,147 @@
+<%- include('../../layout/header', { title: 'Разбор попытки' }) %>
+<div class="content-wrapper">
+
+<%- include('../../shared/page-top', {
+  title: 'Разбор попытки',
+  actions: [
+    { href: '/teacher/quiz/' + attempt.topic_id + '/results', label: '← К результатам', class: 'btn-ghost btn-sm' }
+  ]
+}) %>
+
+<div class="info-box info-box-blue">
+  <%= attempt.last_name %> <%= attempt.first_name %> <%= attempt.middle_name || '' %>
+  · группа <%= attempt.group_name %>
+  · тест «<%= attempt.quiz_title %>»
+</div>
+
+<div class="quiz-info-grid">
+  <div class="quiz-info-cell">
+    <div class="label">Начало</div>
+    <div class="value" style="font-size:15px;"><%= formatDate(attempt.started_at, true) %></div>
+  </div>
+  <div class="quiz-info-cell">
+    <div class="label">Завершение</div>
+    <div class="value" style="font-size:15px;">
+      <%= attempt.finished_at ? formatDate(attempt.finished_at, true) : 'не завершена' %>
+    </div>
+  </div>
+  <div class="quiz-info-cell">
+    <div class="label">Баллы</div>
+    <div class="value">
+      <%= attempt.score != null ? attempt.score : '—' %> / <%= attempt.max_score || '—' %>
+      <% if (attempt.max_score > 0 && attempt.score != null) { %>
+        <span class="cell-secondary" style="font-size:13px;">(<%= attempt.percent %>%)</span>
+      <% } %>
+    </div>
+  </div>
+  <div class="quiz-info-cell">
+    <div class="label">Результат</div>
+    <div class="value">
+      <% if (attempt.status === 'in_progress') { %>
+        <span class="cell-secondary">в процессе</span>
+      <% } else if (attempt.passed) { %>
+        <span style="color:#16a34a;">Сдал</span>
+      <% } else { %>
+        <span style="color:#dc2626;">Не сдал</span>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (attempt.status === 'expired') { %>
+  <div class="info-box info-box-yellow">
+    Время вышло — ответы отправлены автоматически, баллы за отправленное посчитаны.
+  </div>
+<% } %>
+
+<section class="card">
+  <div class="card-header"><h2>Ответы студента</h2></div>
+
+  <% if (!questions || questions.length === 0) { %>
+    <div class="empty-state">Нет вопросов для разбора.</div>
+  <% } else { %>
+    <% questions.forEach(function (q, i) {
+      const opts = q.options || [];
+      const correctIds = new Set(opts.filter(function (o) { return o.is_correct; }).map(function (o) { return o.id; }));
+      const selectedIds = new Set(q.selected_ids || []);
+      const got = Number(q.got_score != null ? q.got_score : (q.score || 0));
+      const points = Number(q.points) || 1;
+      const cls = got >= points ? 'correct' : (got > 0 ? 'partial' : 'wrong');
+      const typeLabel = q.type === 'single' ? 'Один' : (q.type === 'multiple' ? 'Несколько' : 'Порядок');
+    %>
+    <div class="quiz-review-q <%= cls %>">
+      <div class="q-text"><%= i + 1 %>. <%= q.text || '(вопрос без текста)' %></div>
+
+      <% if (q.image_stored_name) { %>
+        <div style="margin:6px 0;">
+          <img src="/file/quiz-image/question/<%= q.id %>" alt=""
+               style="max-height:140px;max-width:100%;border-radius:6px;">
+        </div>
+      <% } %>
+
+      <div class="cell-secondary" style="font-size:12px;margin:6px 0 10px;">
+        Тип: <%= typeLabel %> · Баллы: <%= got %> / <%= points %>
+      </div>
+
+      <% if (q.type === 'ordering') { %>
+        <%
+          const correctOrder = opts.slice().sort(function (a, b) { return a.position - b.position; });
+          const optById = {};
+          opts.forEach(function (o) { optById[o.id] = o; });
+        %>
+        <div style="font-size:13px;color:#475569;margin-bottom:4px;">Правильный порядок:</div>
+        <ol style="margin:0 0 10px 20px;padding:0;font-size:13px;">
+          <% correctOrder.forEach(function (o) { %>
+            <li>
+              <% if (o.image_stored_name) { %>
+                <img src="/file/quiz-image/option/<%= o.id %>" alt=""
+                     style="max-height:32px;vertical-align:middle;margin-right:6px;border-radius:3px;">
+              <% } %>
+              <%= o.text || '' %>
+            </li>
+          <% }); %>
+        </ol>
+
+        <div style="font-size:13px;color:#475569;margin-bottom:4px;">Порядок студента:</div>
+        <% if ((q.selected_ids || []).length === 0) { %>
+          <div class="cell-secondary" style="font-size:13px;">Студент не ответил на этот вопрос.</div>
+        <% } else { %>
+          <ol style="margin:0 0 4px 20px;padding:0;font-size:13px;">
+            <% q.selected_ids.forEach(function (oid) {
+              const o = optById[oid];
+              if (!o) return;
+            %>
+              <li>
+                <% if (o.image_stored_name) { %>
+                  <img src="/file/quiz-image/option/<%= o.id %>" alt=""
+                       style="max-height:32px;vertical-align:middle;margin-right:6px;border-radius:3px;">
+                <% } %>
+                <%= o.text || '' %>
+              </li>
+            <% }); %>
+          </ol>
+        <% } %>
+      <% } else { %>
+        <% opts.forEach(function (o) {
+          const isCorrect = correctIds.has(o.id);
+          const isSelected = selectedIds.has(o.id);
+          const rowCls = (isCorrect ? 'is-correct' : '') + ' ' + (isSelected ? 'is-selected' : '');
+          const marker = isCorrect ? (isSelected ? '✓' : '○') : (isSelected ? '✗' : '·');
+        %>
+          <div class="quiz-review-opt <%= rowCls %>">
+            <span class="marker"><%= marker %></span>
+            <% if (o.image_stored_name) { %>
+              <img src="/file/quiz-image/option/<%= o.id %>" alt="">
+            <% } %>
+            <span><%= o.text || '' %></span>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+    <% }); %>
+  <% } %>
+</section>
+</div>
+
+<link rel="stylesheet" href="/css/quiz.css">
+<%- include('../../layout/footer') %>

@@ -1,0 +1,116 @@
+<%- include('../../layout/header', { title: 'Результат теста' }) %>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Результат',
+    actions: [
+      { href: '/my-subjects/' + topic.subject_id + '/topics/' + topic.id + '/quiz', label: '← к тесту', class: 'btn-ghost btn-sm' }
+    ]
+  }) %>
+
+  <div class="quiz-result-hero">
+    <div class="score <%= attempt.passed ? 'pass' : 'fail' %>">
+      <%= attempt.score %> / <%= attempt.max_score %>
+    </div>
+    <div class="percent"><%= percent %>%</div>
+    <div class="verdict <%= attempt.passed ? 'pass' : 'fail' %>">
+      <%= attempt.passed ? 'Сдал' : 'Не сдал' %>
+    </div>
+    <% if (attempt.status === 'expired') { %>
+      <div style="margin-top:10px;color:#b45309;font-size:14px;">
+        Время вышло — ответы отправлены автоматически.
+      </div>
+    <% } %>
+  </div>
+
+  <% if (review) { %>
+    <section class="card">
+      <div class="card-header"><h2>Разбор ответов</h2></div>
+      <% review.forEach(function (q, i) {
+           var correctIds = new Set((q.options || []).filter(function (o) { return o.is_correct; }).map(function (o) { return o.id; }));
+           var selectedIds = new Set(q.selected_ids || []);
+           var cls = q.got_score >= q.points ? 'correct' : (q.got_score > 0 ? 'partial' : 'wrong');
+      %>
+        <div class="quiz-review-q <%= cls %>">
+          <div class="q-text"><%= i + 1 %>. <%= q.text || '(без текста)' %></div>
+          <% if (q.image_stored_name) { %>
+            <div style="margin:6px 0;">
+              <img src="/file/quiz-image/question/<%= q.id %>" alt=""
+                   style="max-height:140px;max-width:100%;border-radius:6px;">
+            </div>
+          <% } %>
+          <div class="cell-secondary" style="font-size:12px;margin:6px 0 10px;">
+            Баллы: <%= q.got_score %> / <%= q.points %>
+          </div>
+
+          <% if (q.type === 'ordering') { %>
+            <% var correctOrder = (q.options || []).slice().sort(function (a, b) { return a.position - b.position; }); %>
+            <% var optById = {}; (q.options || []).forEach(function (o) { optById[o.id] = o; }); %>
+            <div style="font-size:13px;color:#475569;margin-bottom:4px;">Правильный порядок:</div>
+            <ol style="margin:0 0 10px 20px;padding:0;font-size:13px;">
+              <% correctOrder.forEach(function (o) { %>
+                <li>
+                  <% if (o.image_stored_name) { %>
+                    <img src="/file/quiz-image/option/<%= o.id %>" alt=""
+                         style="max-height:32px;vertical-align:middle;margin-right:6px;border-radius:3px;">
+                  <% } %>
+                  <%= o.text || '' %>
+                </li>
+              <% }); %>
+            </ol>
+            <div style="font-size:13px;color:#475569;margin-bottom:4px;">Ваш порядок:</div>
+            <ol style="margin:0 0 4px 20px;padding:0;font-size:13px;">
+              <% (q.selected_ids || []).forEach(function (oid) {
+                   var o = optById[oid];
+                   if (!o) return;
+              %>
+                <li>
+                  <% if (o.image_stored_name) { %>
+                    <img src="/file/quiz-image/option/<%= o.id %>" alt=""
+                         style="max-height:32px;vertical-align:middle;margin-right:6px;border-radius:3px;">
+                  <% } %>
+                  <%= o.text || '' %>
+                </li>
+              <% }); %>
+            </ol>
+          <% } else { %>
+            <% (q.options || []).forEach(function (o) {
+                 var isCorrect = correctIds.has(o.id);
+                 var isSelected = selectedIds.has(o.id);
+                 var rowCls = (isCorrect ? 'is-correct' : '') + ' ' + (isSelected ? 'is-selected' : '');
+            %>
+              <div class="quiz-review-opt <%= rowCls %>">
+                <span class="marker">
+                  <% if (isCorrect && isSelected) { %>✓<% } %>
+                  <% else if (isCorrect && !isSelected) { %>○<% } %>
+                  <% else if (!isCorrect && isSelected) { %>✗<% } %>
+                  <% else { %>·<% } %>
+                </span>
+                <% if (o.image_stored_name) { %>
+                  <img src="/file/quiz-image/option/<%= o.id %>" alt="">
+                <% } %>
+                <span><%= o.text || '' %></span>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      <% }); %>
+    </section>
+  <% } else { %>
+    <div class="info-box info-box-blue">
+      Преподаватель не разрешил показ правильных ответов — доступен только итоговый результат.
+    </div>
+  <% } %>
+
+  <div class="actions-row" style="margin-top:24px;gap:12px;flex-wrap:wrap;">
+    <a href="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz" class="btn">← К тесту</a>
+    <% if (canRetry) { %>
+      <form method="post"
+            action="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz/start"
+            style="display:inline;">
+        <button type="submit" class="btn btn-primary">Пройти заново</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+<link rel="stylesheet" href="/css/quiz.css">
+<%- include('../../layout/footer') %>

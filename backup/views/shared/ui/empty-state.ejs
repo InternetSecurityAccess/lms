@@ -1,0 +1,17 @@
+<%
+  const _wrap = typeof wrapper !== 'undefined' ? wrapper : true;
+  const _primary = typeof primary !== 'undefined' ? primary : 'Пусто.';
+  const _secondary = typeof secondary !== 'undefined' ? secondary : null;
+  const _action = typeof action !== 'undefined' ? action : null;
+%>
+<% if (_wrap) { %><section class="card"><% } %>
+<div class="empty-state">
+  <p><%= _primary %></p>
+  <% if (_secondary) { %><p class="cell-secondary"><%= _secondary %></p><% } %>
+  <% if (_action) { %>
+    <a href="<%= _action.href %>" class="btn <%= _action.class || 'btn-secondary' %> mt-md">
+      <%= _action.label %>
+    </a>
+  <% } %>
+</div>
+<% if (_wrap) { %></section><% } %>

@@ -1,0 +1,115 @@
+<%- include('../../layout/header', { title: 'Slow-log' }) %>
+<%
+  const baseQuery = { q: q || '', period: period || 'day' };
+  const periodChips = [
+    { href: buildUrl('/admin/slow-log', baseQuery, { period: 'hour', page: '' }), label: 'За час', active: period === 'hour' },
+    { href: buildUrl('/admin/slow-log', baseQuery, { period: 'day', page: '' }), label: 'За сутки', active: period === 'day' },
+    { href: buildUrl('/admin/slow-log', baseQuery, { period: 'week', page: '' }), label: 'За неделю', active: period === 'week' },
+    { href: buildUrl('/admin/slow-log', baseQuery, { period: 'all', page: '' }), label: 'Всё', active: period === 'all' }
+  ];
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Slow-log',
+    actions: [
+      { href: '/admin', label: '← В админку' },
+      { href: '/admin/audit', label: 'Аудит', class: 'btn-ghost btn-sm' }
+    ],
+    flashes: cleaned
+      ? [{
+          type: 'green',
+          text: '<strong>Очищено.</strong>'
+            + (cleanupCount != null ? ` Удалено ${cleanupCount} записей.` : '')
+        }]
+      : []
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Здесь — запросы медленнее <strong>300 мс</strong>. Один и тот же
+    <code>method + path</code> не чаще раза в 5 секунд.
+    Хранение — 30 дней, ротация раз в сутки. Если тут много записей —
+    это повод посмотреть, что тормозит.
+  </div>
+  <%- include('../../shared/ui/filter-chips', { items: periodChips }) %>
+  <form method="GET" action="/admin/slow-log" class="inline-add-form">
+    <input type="hidden" name="period" value="<%= period %>">
+    <input type="search" name="q" value="<%= q %>"
+      placeholder="Поиск по path, role или IP"
+      maxlength="100" class="search-input">
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q) { %>
+      <a href="<%= buildUrl('/admin/slow-log', baseQuery, { q: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <section class="card">
+    <div class="card-header">
+      <h2>Записей: <%= total %><%= pages > 1 ? ', стр. ' + page + ' из ' + pages : '' %></h2>
+      <form method="POST" action="/admin/slow-log/cleanup" class="inline-form"
+        data-confirm="Удалить записи старше указанного количества дней?"
+        data-confirm-ok-text="Очистить"
+        data-confirm-ok-class="danger">
+        <input type="number" name="days" min="1" max="3650" value="30"
+          class="inline-input inline-input-140" title="Сколько дней хранить">
+        <button type="submit" class="btn btn-danger btn-sm">Очистить старые</button>
+      </form>
+    </div>
+    <% if (rows.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', {
+        primary: (q || period !== 'day') ? 'Ничего не найдено по фильтрам.' : 'Медленных запросов нет. Всё быстро.',
+        action: (q || period !== 'day')
+          ? { href: '/admin/slow-log', label: 'Сбросить фильтры' }
+          : null,
+        wrapper: false
+      }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="th-160">Когда</th>
+              <th class="th-80">Метод</th>
+              <th>Path</th>
+              <th class="th-80">Статус</th>
+              <th class="th-100">Время</th>
+              <th class="th-100">Роль</th>
+              <th class="th-120">IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => {
+              const cls = r.status >= 500 ? 'status-danger'
+                : (r.status >= 400 ? 'status-warning'
+                : (r.duration_ms >= 1000 ? 'status-warning' : 'status-success'));
+            %>
+              <tr>
+                <td class="cell-secondary text-nowrap"><%= formatDate(r.created_at, true) %></td>
+                <td><%= r.method %></td>
+                <td>
+                  <code><%= r.path %></code>
+                  <% if (r.user_agent) { %>
+                    <details>
+                      <summary class="cell-secondary clickable">UA</summary>
+                      <div style="margin-top: 4px; font-size: 11px; max-width: 20rem; overflow-wrap: anywhere;"><%= r.user_agent %></div>
+                    </details>
+                  <% } %>
+                </td>
+                <td><span class="status-badge <%= cls %>"><%= r.status %></span></td>
+                <td>
+                  <span class="status-badge <%= r.duration_ms >= 1000 ? 'status-warning' : 'status-info' %>">
+                    <%= r.duration_ms %> мс
+                  </span>
+                </td>
+                <td class="cell-secondary"><%= r.role %><%= r.user_id ? ' #' + r.user_id : '' %></td>
+                <td class="cell-secondary"><%= r.ip || '—' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/slow-log', baseQuery, { page: p > 1 ? p : '' })
+      }) %>
+    <% } %>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

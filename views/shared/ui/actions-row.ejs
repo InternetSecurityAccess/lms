@@ -1,0 +1,20 @@
+<%
+  const _items = (typeof items !== 'undefined' && Array.isArray(items)) ? items : [];
+  const _extra = (typeof extraClass !== 'undefined') ? extraClass : '';
+%>
+<div class="actions-row <%= _extra %>">
+  <% _items.forEach((a) => { %>
+    <% if (a.href) { %>
+      <a href="<%= a.href %>" class="btn <%= a.class || 'btn-secondary btn-sm' %>"><%= a.label %></a>
+    <% } else if (a.form) { %>
+      <form method="<%= a.form.method || 'POST' %>" action="<%= a.form.action %>" class="inline-form"
+            <% if (a.form.confirm) { %>data-confirm="<%= a.form.confirm %>" <% } %>>
+        <% (a.form.hidden || []).forEach(([k, v]) => { %>
+          <input type="hidden" name="<%= k %>" value="<%= v %>">
+        <% }) %>
+        <button type="submit" class="btn <%= a.class || 'btn-secondary btn-sm' %>"><%= a.label %></button>
+      </form>
+    <% } %>
+  <% }) %>
+  <% if (typeof content !== 'undefined') { %><%- content %><% } %>
+</div>

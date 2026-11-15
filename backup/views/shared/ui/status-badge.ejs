@@ -1,0 +1,6 @@
+<%
+  const _st = (typeof status !== 'undefined') && WORK_STATUSES && WORK_STATUSES[status];
+%>
+<% if (_st) { %>
+  <span class="status-badge status-<%= _st.cls %>"><%= _st.label %></span>
+<% } %>

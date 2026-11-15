@@ -1,0 +1,93 @@
+<%- include('../../layout/header', { title: 'Новый студент' }) %>
+<%
+  const currentLoginType = (typeof loginType !== 'undefined' && loginType === 'email')
+    ? 'email' : 'student_id';
+%>
+<div class="content-wrapper narrow">
+  <div class="top-bar">
+    <h1 class="top-bar-title">Новый студент</h1>
+    <a href="/admin/students" class="btn btn-ghost">← К студентам</a>
+  </div>
+  <section class="card">
+    <% if (error) { %>
+      <div class="info-box info-box-red" role="alert"><%= error %></div>
+    <% } %>
+    <div class="info-box info-box-blue info-box-how">
+      <strong>Тип логина.</strong>
+      В этом колледже самостоятельная регистрация студентов работает в режиме
+      «<%= studentLoginType === 'email' ? 'по email' : 'по номеру студенческого' %>».
+      Вы можете создавать студентов с любым типом логина — выбор ниже не зависит
+      от общего режима.
+    </div>
+    <div class="info-box info-box-blue info-box-how">
+      <strong>Пароль генерируется автоматически (8 цифр)</strong> и показывается один раз
+      после создания. При первом входе студент обязан сменить пароль.
+    </div>
+    <form action="/admin/students" method="POST" autocomplete="off">
+      <div class="form-grid">
+        <label>Тип логина</label>
+        <div class="field">
+          <div class="actions-row gap-4 items-center">
+            <label class="checkbox-row">
+              <input type="radio" name="login_type" value="student_id"
+                <%= currentLoginType === 'student_id' ? 'checked' : '' %>>
+              <span>Номер студенческого</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="radio" name="login_type" value="email"
+                <%= currentLoginType === 'email' ? 'checked' : '' %>>
+              <span>Email</span>
+            </label>
+          </div>
+        </div>
+        <label for="s-login" class="form-label">Логин <span class="required">*</span></label>
+        <div class="field">
+          <input type="text" id="s-login" name="login" required
+            maxlength="50"
+            <% if (currentLoginType === 'student_id') { %>
+              pattern="[A-Za-zА-Яа-яЁё0-9._/-]+"
+              title="Только буквы, цифры, точка, дефис, подчёркивание, слэш."
+            <% } %>
+            value="<%= form.login %>"
+            placeholder="<%= currentLoginType === 'email' ? 'student@example.com' : 'Например: 1000002' %>">
+          <div class="hint" id="s-login-hint">
+            <%= currentLoginType === 'email'
+                  ? 'Email, по которому студент входит в систему.'
+                  : 'Номер студенческого билета.' %>
+          </div>
+        </div>
+        <label for="s-last" class="form-label">Фамилия <span class="required">*</span></label>
+        <div class="field">
+          <input type="text" id="s-last" name="last_name" required maxlength="100"
+            value="<%= form.last_name %>" placeholder="Иванов">
+        </div>
+        <label for="s-first" class="form-label">Имя <span class="required">*</span></label>
+        <div class="field">
+          <input type="text" id="s-first" name="first_name" required maxlength="100"
+            value="<%= form.first_name %>" placeholder="Иван">
+        </div>
+        <label for="s-middle" class="form-label">Отчество</label>
+        <div class="field">
+          <input type="text" id="s-middle" name="middle_name" maxlength="100"
+            value="<%= form.middle_name %>" placeholder="Иванович">
+        </div>
+        <label for="s-group" class="form-label">Группа <span class="required">*</span></label>
+        <div class="field">
+          <select id="s-group" name="group_id" required>
+            <option value="">Выберите группу</option>
+            <% groups.forEach((g) => { %>
+              <option value="<%= g.id %>" <%= String(form.group_id) === String(g.id) ? 'selected' : '' %>>
+                <%= g.name %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Создать</button>
+          <a href="/admin/students" class="btn btn-ghost">Отмена</a>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

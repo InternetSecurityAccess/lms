@@ -1,0 +1,132 @@
+<%- include('../layout/header', { title: 'Поддержка' }) %>
+<%
+  const canDelete = (m) => !m.deleted_at && m.sender_type === 'user';
+%>
+<div class="content-wrapper">
+  <%- include('../shared/page-top', { title: 'Поддержка' }) %>
+  <div class="info-box info-box-blue info-box-how">
+    <strong>Напишите администратору</strong> — если что-то не работает, есть вопрос по
+    доступу или учётной записи. Отвечаем в этом окне. Скриншот прикрепляется
+    вставкой из буфера: <kbd>Ctrl</kbd>+<kbd>V</kbd>.
+  </div>
+  <% if (deletedMsgId) { %>
+    <div class="info-box info-box-yellow" role="status">Сообщение удалено.</div>
+  <% } %>
+  <section class="card">
+    <div class="card-header">
+      <h2>Чат с администратором</h2>
+      <div class="chat-meta">
+        <span>Сообщений: <strong id="supportMessageCount"><%= messages.length %></strong></span>
+        <span id="supportLastUpdate"></span>
+      </div>
+    </div>
+    <div class="chat-toolbar gap-2 items-center flex-wrap">
+      <form method="GET" action="/support" class="inline-add-form search-input-240 m-0">
+        <input type="search" name="q" value="<%= q || '' %>" maxlength="200"
+          placeholder="Поиск по сообщениям" class="search-input-180">
+        <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+        <% if (q) { %>
+          <a href="/support" class="btn btn-ghost btn-sm">Сбросить</a>
+        <% } %>
+      </form>
+      <button type="button" class="btn btn-secondary btn-sm" id="supportRefreshBtn">
+        <span class="spinner"></span> ↻ Обновить
+      </button>
+    </div>
+    <% if (q) { %>
+      <div class="info-box info-box-blue">Найдено: <strong><%= messages.length %></strong> по запросу «<%= q %>».</div>
+    <% } %>
+    <div id="supportMessages" class="messages-list" aria-live="polite">
+      <% if (messages.length === 0) { %>
+        <div class="empty-state">
+          <% if (q) { %>
+            <p>Ничего не найдено.</p>
+            <a href="/support" class="btn btn-secondary mt-3">Сбросить поиск</a>
+          <% } else { %>
+            <p>Сообщений пока нет.</p>
+            <p>Напишите ниже — администратор увидит ваше сообщение.</p>
+          <% } %>
+        </div>
+      <% } else { %>
+        <% messages.forEach((m) => {
+             const isOwn = m.sender_type === 'user';
+        %>
+          <article class="message <%= isOwn ? 'is-own' : 'is-other' %> <%= m.deleted_at ? 'message-deleted' : '' %>" data-id="<%= m.id %>">
+            <div class="message-header">
+              <span class="message-sender"><%= m.sender_name %></span>
+              <div class="actions-row gap-2">
+                <time class="message-time"><%= formatDate(m.created_at, true) %></time>
+                <% if (canDelete(m)) { %>
+                  <form method="POST" action="/support/messages/<%= m.id %>/delete"
+                    class="inline-form"
+                    data-confirm="Удалить сообщение?"
+                    data-confirm-ok-text="Удалить"
+                    data-confirm-ok-class="danger">
+                    <button type="submit" class="btn-delete-message" title="Удалить">×</button>
+                  </form>
+                <% } %>
+              </div>
+            </div>
+            <% if (m.deleted_at) { %>
+              <div class="message-text message-text-deleted">Сообщение удалено</div>
+            <% } else { %>
+              <% if (m.message) { %><div class="message-text"><%- renderText(m.message) %></div><% } %>
+              <% if (m.file_path) { %>
+                <% const supFile = m.file_path.split('/').pop(); %>
+                <% const supName = m.file_name || 'screenshot.png'; %>
+                <div class="message-file">
+                  <a href="/support/image/<%= encodeURIComponent(supFile) %>"
+                     class="support-image-link"
+                     data-file-preview
+                     data-file-name="<%= supName %>"
+                     data-view-url="/support/image/<%= encodeURIComponent(supFile) %>"
+                     data-download-url="/support/image/<%= encodeURIComponent(supFile) %>">
+                    <img class="support-image"
+                         src="/support/image/<%= encodeURIComponent(supFile) %>"
+                         alt="<%= supName %>"
+                         loading="lazy">
+                  </a>
+                </div>
+              <% } %>
+            <% } %>
+          </article>
+        <% }) %>
+      <% } %>
+    </div>
+    <form id="supportForm" action="/support" method="POST" class="mt-3">
+      <div class="form-grid">
+        <label for="support-msg" class="form-label">Сообщение</label>
+        <div class="field">
+          <textarea id="support-msg" name="message" maxlength="5000" rows="3"
+            placeholder="Опишите проблему или задайте вопрос"></textarea>
+          <div class="hint">
+            Скриншот можно прикрепить вставкой из буфера:
+            <kbd>Ctrl</kbd>+<kbd>V</kbd> (или <kbd>⌘</kbd>+<kbd>V</kbd> на Mac).
+          </div>
+          <div id="supportAttachment" class="support-attachment" hidden>
+            <div class="support-attachment-preview">
+              <img id="supportAttachmentPreview" alt="предпросмотр скриншота">
+            </div>
+            <div class="support-attachment-info">
+              <div class="support-attachment-name" id="supportAttachmentName"></div>
+              <button type="button" class="btn btn-ghost btn-sm" id="supportAttachmentRemove">Убрать</button>
+            </div>
+            <input type="hidden" name="file_path" value="">
+            <input type="hidden" name="file_name" value="">
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-success">Отправить</button>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+<div id="supportToast" class="toast"></div>
+<script type="application/json" id="support-init-data"><%- JSON.stringify({
+  messagesUrl: '/support/messages.json' + (q ? '?q=' + encodeURIComponent(q) : ''),
+  viewerRole: 'user'
+}).replace(/</g, '\\u003c') %></script>
+<script src="/js/support.js" defer></script>
+<%- include('../shared/ui/file-viewer') %>
+<%- include('../layout/footer') %>

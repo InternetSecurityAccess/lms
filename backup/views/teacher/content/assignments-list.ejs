@@ -1,0 +1,145 @@
+<%- include('../../layout/header', { title: subject.title }) %>
+<%
+  const basePath = `/subjects/${subject.id}/assignments`;
+  const baseQuery = { q: q || '', wfilter: wfilter || 'all' };
+  const wfilters = [
+    { key: 'all',      label: `Все (${workCounts.all})` },
+    { key: 'pending',  label: `На проверке (${workCounts.pending})` },
+    { key: 'accepted', label: `Принятые (${workCounts.accepted})` }
+  ].map((f) => ({
+    ...f,
+    href: buildUrl(basePath, baseQuery, { wfilter: f.key }),
+    active: wfilter === f.key
+  }));
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: subject.title,
+    subtitle: 'Задания',
+    actions: [
+      { href: `${basePath}/new`, label: '+ Создать задание', class: 'btn-primary btn-sm' }
+    ],
+    back: { href: `/subjects/${subject.id}/topics` },
+    flashes: [
+      ...(query.created ? [{ type: 'green', text: '<strong>Задание создано.</strong>' + (counts.groups === 0 ? ' Но предмет не привязан к группам.' : '') }] : []),
+      ...(query.deleted ? [{ type: 'yellow', text: '<strong>Задание перемещено в корзину.</strong> Восстановить можно в <a href="/trash">Корзине</a>.' }] : [])
+    ]
+  }) %>
+  <div class="tabs">
+    <a href="/subjects/<%= subject.id %>/topics" class="tab">Темы (<%= counts.topics %>)</a>
+    <a href="/subjects/<%= subject.id %>/groups" class="tab">Группы (<%= counts.groups %>)</a>
+    <a href="<%= basePath %>" class="tab active">Задания (<%= counts.assignments %>)</a>
+  </div>
+  <% if (subject.status !== 'active') { %>
+    <div class="info-box info-box-yellow">
+      <strong>Предмет закрыт администратором.</strong> Задания доступны для просмотра,
+      но студенты не смогут сдавать. Чтобы возобновить приём работ — обратитесь к администратору.
+    </div>
+  <% } %>
+  <% if (groups.length === 0) { %>
+    <div class="info-box info-box-yellow">
+      <strong>Предмет не привязан ни к одной группе.</strong>
+      Задания создавать можно, но студенты их не увидят.
+      <a href="/subjects/<%= subject.id %>/groups">Привязать группы →</a>
+    </div>
+  <% } else { %>
+    <div class="info-box info-box-blue">
+      Привязан к группам:
+      <% groups.forEach((g, i) => { %><strong><%= g.name %></strong>&nbsp;(<%= g.students_count %>)<%= i < groups.length - 1 ? ', ' : '' %><% }) %>
+      · всего студентов: <strong><%= totalStudents %></strong>
+    </div>
+  <% } %>
+  <%- include('../../shared/ui/filter-chips', { items: wfilters }) %>
+  <form method="GET" action="<%= basePath %>" class="inline-add-form">
+    <input type="hidden" name="wfilter" value="<%= wfilter %>">
+    <input type="search" name="q" value="<%= q %>" maxlength="100"
+      placeholder="Поиск по названию или описанию" class="search-input">
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q) { %>
+      <a href="<%= buildUrl(basePath, baseQuery, { q: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <% if (assignments.length === 0) { %>
+    <%- include('../../shared/ui/empty-state', {
+      primary: q ? `Ничего не найдено по запросу «${q}».`
+        : wfilter === 'pending' ? 'Нет работ на проверке.'
+        : wfilter === 'accepted' ? 'Нет принятых работ.'
+        : 'Заданий пока нет.',
+      action: q
+        ? { href: buildUrl(basePath, baseQuery, { q: '' }), label: 'Сбросить поиск' }
+        : wfilter !== 'all'
+          ? { href: buildUrl(basePath, baseQuery, { wfilter: 'all' }), label: 'Показать все задания' }
+          : { href: `${basePath}/new`, label: '+ Создать задание', class: 'btn-primary' }
+    }) %>
+  <% } else { %>
+    <section class="card">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Задание</th>
+              <th>Срок сдачи</th>
+              <th class="th-100">Сдано</th>
+              <th class="th-120">На проверке</th>
+              <th class="th-100">Принято</th>
+              <th class="th-120">Статус</th>
+              <th class="th-130"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% assignments.forEach((a) => {
+              const pct = totalStudents > 0 ? Math.round((a.submitted_students / totalStudents) * 100) : 0;
+              const st = a.status;
+            %>
+              <tr class="<%= st === 'finished' ? 'cell-secondary' : '' %>">
+                <td>
+                  <div class="cell-primary">
+                    <% if (st === 'finished') { %>📦 <% } else if (st === 'draft') { %>📝 <% } %>
+                    <%= a.title %>
+                  </div>
+                  <% if (a.description) { %>
+                    <div class="cell-secondary"><%= a.description.slice(0, 100) %><%= a.description.length > 100 ? '…' : '' %></div>
+                  <% } %>
+                </td>
+                <td class="cell-secondary" style="white-space:nowrap;">
+                  <%= a.deadline ? formatDate(a.deadline, true) : '—' %>
+                </td>
+                <td>
+                  <div class="cell-primary"><%= a.submitted_students %> из <%= totalStudents %></div>
+                  <div class="cell-secondary"><%= pct %>%</div>
+                </td>
+                <td>
+                  <% if (a.pending_count > 0) { %>
+                    <span class="status-badge status-pending"><%= a.pending_count %></span>
+                  <% } else { %>
+                    <span class="cell-secondary">—</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (a.accepted_count > 0) { %>
+                    <span class="status-badge status-accepted"><%= a.accepted_count %></span>
+                  <% } else { %>
+                    <span class="cell-secondary">—</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (st === 'active') { %>
+                    <span class="status-badge status-success">активно</span>
+                  <% } else if (st === 'finished') { %>
+                    <span class="status-badge status-muted">завершено</span>
+                  <% } else { %>
+                    <span class="status-badge status-warning">черновик</span>
+                  <% } %>
+                </td>
+                <td>
+                  <a href="<%= basePath %>/<%= a.id %>" class="btn btn-primary btn-sm">Открыть</a>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+</div>
+<%- include('../../layout/footer') %>
