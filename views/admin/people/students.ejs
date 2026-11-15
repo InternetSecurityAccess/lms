@@ -1,0 +1,306 @@
+<%- include('../../layout/header', { title: 'Студенты' }) %>
+<%
+  const pageError = (typeof error !== 'undefined' && error) ? error : null;
+  const createdS = (typeof createdStudent !== 'undefined') ? createdStudent : null;
+  const baseQuery = {
+    q: q || '',
+    group: selectedGroup || '',
+    status: status || 'active',
+    has_works: hasWorks || '',
+    sort: sort || 'name_asc'
+  };
+  const redirectTo = buildUrl('/admin/students', baseQuery);
+  const flashes = deletedDone
+    ? [{ type: 'yellow', text: '<strong>Студент перемещён в корзину.</strong> Восстановить можно в <a href="/admin/trash">/admin/trash</a>.' }]
+    : [];
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Студенты',
+    actions: [
+      { href: '/admin/students/new', label: '+ Добавить студента', class: 'btn-primary btn-sm' },
+      { href: '/admin/trash', label: 'Корзина', class: 'btn-ghost btn-sm' },
+      { href: '/admin', label: '← В админку' }
+    ],
+    flashes
+  }) %>
+  <% if (pageError) { %>
+    <div class="info-box info-box-red" role="alert"><%= pageError %></div>
+  <% } %>
+  <div class="info-box info-box-blue info-box-how">
+    При создании студента <strong>пароль генерируется автоматически (8 цифр)</strong>
+    и показывается один раз. При первом входе студент обязан сменить пароль.<br>
+    <strong>Завершить</strong> — выпускник, только для чтения. <strong>Возобновить</strong> — снова active.
+    <strong>В корзину</strong> — soft-delete, восстановление из /admin/trash.
+  </div>
+  <section class="card">
+    <div class="tabs">
+      <a href="<%= buildUrl('/admin/students', baseQuery, { status: 'active' }) %>"
+         class="tab <%= status === 'active' ? 'active' : '' %>">Активные (<%= counts.active %>)</a>
+      <a href="<%= buildUrl('/admin/students', baseQuery, { status: 'finished' }) %>"
+         class="tab <%= status === 'finished' ? 'active' : '' %>">Завершённые (<%= counts.finished %>)</a>
+      <a href="<%= buildUrl('/admin/students', baseQuery, { status: 'all' }) %>"
+         class="tab <%= status === 'all' ? 'active' : '' %>">Все</a>
+    </div>
+    <%- include('../../shared/ui/filter-chips', {
+      items: [
+        { href: buildUrl('/admin/students', baseQuery, { has_works: '' }),     label: 'Все',         active: !hasWorks },
+        { href: buildUrl('/admin/students', baseQuery, { has_works: 'yes' }),  label: 'Есть работы', active: hasWorks === 'yes' },
+        { href: buildUrl('/admin/students', baseQuery, { has_works: 'none' }), label: 'Без работ',   active: hasWorks === 'none' }
+      ]
+    }) %>
+    <form method="GET" action="/admin/students" class="inline-add-form">
+      <input type="hidden" name="status" value="<%= status %>">
+      <% if (hasWorks) { %><input type="hidden" name="has_works" value="<%= hasWorks %>"><% } %>
+      <select name="group">
+        <option value="">Все группы</option>
+        <% groups.forEach((g) => { %>
+          <option value="<%= g.id %>" <%= selectedGroup === String(g.id) ? 'selected' : '' %>><%= g.name %></option>
+        <% }) %>
+      </select>
+      <input type="search" name="q" value="<%= q %>" placeholder="Поиск по ФИО или логину" maxlength="100" class="search-input-220">
+      <select name="sort">
+        <option value="name_asc" <%= sort === 'name_asc' ? 'selected' : '' %>>По имени (А→Я)</option>
+        <option value="name_desc" <%= sort === 'name_desc' ? 'selected' : '' %>>По имени (Я→А)</option>
+        <option value="date_desc" <%= sort === 'date_desc' ? 'selected' : '' %>>Сначала новые</option>
+        <option value="date_asc" <%= sort === 'date_asc' ? 'selected' : '' %>>Сначала старые</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+      <% if (q || selectedGroup || hasWorks) { %>
+        <a href="<%= buildUrl('/admin/students', baseQuery, { q: '', group: '', has_works: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+      <% } %>
+    </form>
+<%- include('../../shared/ui/bulk-toolbar', {
+  entity: 'students',
+  scope: 'students',
+  actions: [
+    {
+      href: '/admin/bulk-finish',
+      label: 'Завершить',
+      class: 'btn-warning btn-sm',
+      method: 'POST',
+      confirm: 'Завершить выбранных студентов? Они станут выпускниками (только для чтения).',
+      okText: 'Завершить',
+      okClass: 'warning'
+    },
+    {
+      href: '/admin/bulk-activate',
+      label: 'Возобновить',
+      class: 'btn-success btn-sm',
+      method: 'POST',
+      confirm: 'Возобновить выбранных студентов?'
+    },
+    {
+      href: '/admin/bulk-delete',
+      label: 'В корзину',
+      class: 'btn-danger btn-sm',
+      method: 'POST',
+      confirm: 'Переместить выбранных студентов в корзину? Файлы сохранятся до hard-delete из /admin/trash.',
+      okText: 'В корзину',
+      okClass: 'danger'
+    }
+  ]
+}) %>
+    <div class="info-box info-box-blue">
+      Клик по ФИО открывает карточку: смена ФИО, логина, группы, сброс пароля, статус, удаление в корзину.
+    </div>
+    <div class="card-header"><h2>Список (<%= students.length %>)</h2></div>
+    <% if (students.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', { primary: 'Нет студентов.', wrapper: false }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="bulk-th"><input type="checkbox" data-bulk-all data-bulk-scope="students" aria-label="Выбрать всех"></th>
+              <th class="th-50">ID</th>
+              <th>Логин</th>
+              <th>ФИО</th>
+              <th>Группа</th>
+              <th class="th-80">Работ</th>
+              <th class="th-120">Регистрация</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% students.forEach((s) => {
+              const isActive = s.status === 'active';
+              const isFinished = s.status === 'finished';
+            %>
+              <tr class="<%= !isActive ? 'cell-secondary' : '' %>">
+                <td class="bulk-td"><input type="checkbox" data-bulk-checkbox data-bulk-scope="students" value="<%= s.id %>" aria-label="Выбрать студента <%= s.name %>"></td>
+                <td><%= s.id %></td>
+                <td><%= s.login || '—' %></td>
+                <td>
+                  <button type="button" class="link-button"
+                          data-modal-open="student-modal-<%= s.id %>"
+                          title="Открыть карточку">
+                    <%= s.name %>
+                  </button>
+                  <% if (s.must_change_password) { %>
+                    <span class="status-badge status-warning">ждёт смены</span>
+                  <% } %>
+                  <% if (isFinished) { %>
+                    <span class="status-badge status-muted">завершён</span>
+                  <% } %>
+                </td>
+                <td><%= s.group_name %></td>
+                <td><%= s.works_count %></td>
+                <td class="cell-secondary"><%= formatDate(s.created_at) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/students', baseQuery, { page: p > 1 ? p : '' })
+      }) %>
+    <% } %>
+  </section>
+</div>
+
+<%# ═══════════════ МОДАЛКИ РЕДАКТИРОВАНИЯ ═══════════════ %>
+<% students.forEach((s) => {
+  const isActive = s.status === 'active';
+  const isFinished = s.status === 'finished';
+%>
+  <div class="modal" id="student-modal-<%= s.id %>" hidden role="dialog" aria-modal="true"
+       aria-labelledby="student-modal-title-<%= s.id %>">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="student-modal-title-<%= s.id %>">
+          Студент #<%= s.id %>
+        </h3>
+        <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>ФИО</h4>
+        <form method="POST" action="/admin/students/<%= s.id %>/change-name"
+              class="form-row">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <input type="text" name="last_name" value="<%= s.last_name || '' %>"
+                 required maxlength="100" placeholder="Фамилия">
+          <input type="text" name="first_name" value="<%= s.first_name || '' %>"
+                 required maxlength="100" placeholder="Имя">
+          <input type="text" name="middle_name" value="<%= s.middle_name || '' %>"
+                 maxlength="100" placeholder="Отчество">
+          <button type="submit" class="btn btn-success btn-sm">Сохранить</button>
+        </form>
+      </div>
+
+      <div class="modal-section">
+        <h4>Логин</h4>
+        <form method="POST" action="/admin/students/<%= s.id %>/change-login"
+              class="form-row"
+              data-confirm="Сменить логин студента <%= s.name %>?"
+              data-confirm-ok-text="Сменить"
+              data-confirm-ok-class="primary">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <input type="text" name="login" value="<%= s.login || '' %>"
+                 maxlength="200" required placeholder="Логин или email"
+                 title="Можно ввести и номер студенческого, и email — определится автоматически.">
+          <button type="submit" class="btn btn-success btn-sm">Сохранить</button>
+        </form>
+        <div class="hint">
+          <%= studentLoginType === 'email' ? 'Email, указанный при регистрации.' : 'Номер студенческого билета.' %>
+          Все сессии студента завершатся.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Группа</h4>
+        <% if (!isActive) { %>
+          <div class="cell-secondary"><%= s.group_name %> (студент завершён)</div>
+        <% } else { %>
+          <form method="POST" action="/admin/students/<%= s.id %>/change-group"
+                class="form-row"
+                data-confirm="Перевести студента <%= s.name %> в другую группу?&#10;Работы по предметам, которые ведутся в новой группе, переедут туда и станут видны преподавателю в контексте новой группы.&#10;Работы по предметам, которых нет в новой группе, останутся в прежней — их продолжит видеть прежний преподаватель."
+                data-confirm-ok-text="Перевести"
+                data-confirm-ok-class="primary">
+            <input type="hidden" name="redirect" value="<%= redirectTo %>">
+            <select name="group_id" required>
+              <% groups.forEach((g) => { %>
+                <option value="<%= g.id %>" <%= String(s.group_id) === String(g.id) ? 'selected' : '' %>><%= g.name %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="btn btn-secondary btn-sm">Перевести</button>
+          </form>
+        <% } %>
+      </div>
+
+      <div class="modal-section">
+        <h4>Пароль</h4>
+        <div class="actions-row">
+          <button type="button" class="btn btn-secondary btn-sm reset-password-btn"
+                  data-url="/admin/students/<%= s.id %>/reset-password"
+                  data-user-name="<%= s.name %>">
+            Сбросить пароль
+          </button>
+        </div>
+        <div class="hint">
+          Новый пароль (8 цифр) будет показан один раз. Все сессии студента завершатся.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Статус</h4>
+        <div class="actions-row">
+          <span class="status-badge <%= isActive ? 'status-success' : 'status-muted' %>">
+            <%= isActive ? 'активен' : (isFinished ? 'завершён' : s.status) %>
+          </span>
+          <% if (isActive) { %>
+            <form method="POST" action="/admin/students/<%= s.id %>/finish"
+                  class="inline-form"
+                  data-confirm="Завершить обучение студента <%= s.name %>? Он станет выпускником (только для чтения)."
+                  data-confirm-ok-text="Завершить"
+                  data-confirm-ok-class="warning">
+              <input type="hidden" name="redirect" value="<%= redirectTo %>">
+              <button type="submit" class="btn btn-warning btn-sm">Завершить</button>
+            </form>
+          <% } else if (isFinished) { %>
+            <form method="POST" action="/admin/students/<%= s.id %>/activate"
+                  class="inline-form"
+                  data-confirm="Возобновить студента <%= s.name %>? Он снова станет активным."
+                  data-confirm-ok-text="Возобновить"
+                  data-confirm-ok-class="success">
+              <input type="hidden" name="redirect" value="<%= redirectTo %>">
+              <button type="submit" class="btn btn-success btn-sm">Возобновить</button>
+            </form>
+          <% } %>
+        </div>
+        <div class="hint">
+          Завершённый студент — выпускник, только для чтения. Данные, работы и файлы сохраняются.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Удаление</h4>
+        <form method="POST" action="/admin/students/<%= s.id %>/delete"
+              class="form-row"
+              data-confirm="Переместить студента <%= s.name %> в корзину? Восстановить можно в /admin/trash."
+              data-confirm-ok-text="В корзину"
+              data-confirm-ok-class="danger">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <button type="submit" class="btn btn-danger btn-sm">В корзину</button>
+        </form>
+        <div class="hint">
+          Soft-delete. Данные и файлы сохраняются, восстановить можно из
+          <a href="/admin/trash">корзины</a>.
+        </div>
+      </div>
+
+      <div class="actions-row" style="justify-content: flex-end; margin-top: var(--space-3);">
+        <button type="button" class="btn btn-ghost" data-modal-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<%- include('../../shared/ui/reset-password', {
+  autoPasswordName: createdS ? createdS.name : null,
+  autoPasswordPassword: createdS ? createdS.password : null,
+  autoPasswordDigits: createdS ? createdS.digits : null
+}) %>
+<%- include('../../layout/footer') %>

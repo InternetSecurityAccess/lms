@@ -1,0 +1,115 @@
+<%- include('../../layout/header', { title: assignment.title }) %>
+<%
+  const hasExisting = !!(existing && works && works.length > 0);
+  const assignmentFiles = assignment.attachments || [];
+  const topicFiles = (topic && topic.attachments) || [];
+  const blockMessages = {
+    assignment_finished: 'Задание завершено преподавателем.',
+    subject_finished:    'Предмет завершён.',
+    teacher_finished:    'Преподаватель завершил работу.',
+    group_finished:      'Ваша группа завершена.',
+    not_in_group:        'Вы больше не в группе этого предмета.',
+  };
+  const blockHints = {
+    assignment_finished: 'Приём работ закрыт. Преподаватель завершил задание — сдать новую версию нельзя. Существующая переписка сохранилась.',
+    subject_finished:    'Предмет завершён — новые сдачи и переписка недоступны. Если предмет ведётся снова, преподаватель попросит администратора «Возобновить» его.',
+    teacher_finished:    'Преподаватель завершил работу. Новые сдачи невозможны. Обратитесь к администратору, если это ошибка.',
+    group_finished:      'Ваша группа завершена (выпуск). Все материалы и работы доступны как только для чтения.',
+    not_in_group:        'Вы переведены в другую группу или отвязаны от предмета. Ваши прежние сдачи сохраняются в истории.',
+  };
+  const blockMessage = blockMessages[blockReason] || 'Задание доступно только для чтения.';
+  const blockHint = blockHints[blockReason] || 'Сдать работу или написать в чат уже нельзя.';
+%>
+<div class="content-wrapper medium">
+  <%- include('../../shared/page-top', {
+    title: assignment.title,
+    back: { href: '/my-study' }
+  }) %>
+  <div class="info-box info-box-yellow">
+    <strong>Только для чтения.</strong> <%= blockMessage %>
+    <% if (hasExisting) { %>Информация о вашей сдаче — ниже.<% } %>
+  </div>
+  <div class="info-box info-box-blue info-box-how">
+    <%= blockHint %><br>
+    <strong>Что делать:</strong> если сдача нужна снова — напишите преподавателю
+    в <a href="/support">поддержку</a> или попросите его открыть задание заново
+    (это административная функция).
+  </div>
+  <section class="card">
+    <div class="card-header"><h2>Задание</h2></div>
+    <div class="info-list">
+      <div>
+        <strong>Предмет</strong>
+        <span><a href="/t/<%= assignment.teacher_id %>/subjects/<%= assignment.subject_id %>"><%= assignment.subject_title %></a></span>
+      </div>
+      <div><strong>Преподаватель</strong><span><%= assignment.teacher_name %></span></div>
+      <% if (assignment.deadline) { %>
+        <div><strong>Срок сдачи</strong><span><%= formatDate(assignment.deadline, true) %></span></div>
+      <% } %>
+      <% if (assignment.description) { %>
+        <div><strong>Описание</strong><span class="text-pre"><%= assignment.description %></span></div>
+      <% } %>
+      <% if (assignmentFiles.length > 0) { %>
+        <div>
+          <strong>Файлы задания</strong>
+          <div>
+            <%- include('../../shared/ui/attachments-list', {
+              items: assignmentFiles, empty: '—'
+            }) %>
+          </div>
+        </div>
+      <% } %>
+      <% if (topicFiles.length > 0) { %>
+        <div>
+          <strong>Материал к заданию</strong>
+          <div>
+            <%- include('../../shared/ui/attachments-list', {
+              items: topicFiles, empty: '—'
+            }) %>
+          </div>
+        </div>
+      <% } %>
+      <% if (assignment.external_url) { %>
+        <div>
+          <strong>Ссылка на материалы</strong>
+          <a href="<%= assignment.external_url %>" target="_blank" rel="noopener"><%= assignment.external_url %></a>
+        </div>
+      <% } %>
+    </div>
+  </section>
+  <% if (hasExisting) { %>
+    <section class="card">
+      <div class="card-header">
+        <h2>Ваша работа</h2>
+        <%- include('../../shared/ui/status-badge', { status: existing.status }) %>
+      </div>
+      <div class="info-list">
+        <div><strong>Сдано</strong><span><%= formatDate(existing.uploaded_at, true) %></span></div>
+        <% if (existing.comment) { %>
+          <div><strong>Комментарий</strong><span class="text-pre"><%= existing.comment %></span></div>
+        <% } %>
+        <% if (existing.external_url) { %>
+          <div>
+            <strong>Ссылка</strong>
+            <a href="<%= existing.external_url %>" target="_blank" rel="noopener"><%= existing.external_url %></a>
+          </div>
+        <% } %>
+        <div>
+          <strong>Файлы</strong>
+          <div>
+            <%- include('../../shared/ui/attachments-list', {
+              items: existingFiles || [], empty: '—'
+            }) %>
+          </div>
+        </div>
+      </div>
+    </section>
+  <% } else { %>
+    <div class="info-box info-box-red mt-3">
+      <strong>Работа не сдана.</strong> Задание в архиве, сдать новую невозможно.
+      Обратитесь к преподавателю, если нужно сдать.
+    </div>
+  <% } %>
+</div>
+<%- include('../../shared/ui/file-viewer') %>
+<%- include('../../layout/footer') %>

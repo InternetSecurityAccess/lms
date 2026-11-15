@@ -1,0 +1,27 @@
+<%
+  const _label = (typeof label !== 'undefined') ? label : '';
+  const _name = (typeof name !== 'undefined') ? name : '';
+  const _type = (typeof type !== 'undefined') ? type : 'text';
+  const _value = (typeof value !== 'undefined') ? value : '';
+  const _required = (typeof required !== 'undefined' && required);
+  const _hint = (typeof hint !== 'undefined') ? hint : null;
+  const _placeholder = (typeof placeholder !== 'undefined') ? placeholder : '';
+  const _maxlength = (typeof maxlength !== 'undefined') ? maxlength : 200;
+  const _minlength = (typeof minlength !== 'undefined') ? minlength : null;
+  const _autocomplete = (typeof autocomplete !== 'undefined') ? autocomplete : 'off';
+  const _id = (typeof id !== 'undefined') ? id : ('f-' + _name);
+%>
+<label for="<%= _id %>" class="form-label">
+  <%= _label %>
+  <% if (_required) { %><span class="required">*</span><% } %>
+</label>
+<div class="field">
+  <input type="<%= _type %>" id="<%= _id %>" name="<%= _name %>"
+    value="<%= _value %>"
+    <%= _required ? 'required' : '' %>
+    maxlength="<%= _maxlength %>"
+    <% if (_minlength) { %>minlength="<%= _minlength %>"<% } %>
+    autocomplete="<%= _autocomplete %>"
+    placeholder="<%= _placeholder %>">
+  <% if (_hint) { %><div class="hint"><%= _hint %></div><% } %>
+</div>

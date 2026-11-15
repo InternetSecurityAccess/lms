@@ -1,0 +1,254 @@
+<%- include('../../layout/header', { title: 'Все предметы' }) %>
+<%
+  const baseQuery = { q: q || '', status: status || '', teacher: teacherId || '' };
+  const redirectTo = buildUrl('/admin/subjects', baseQuery);
+  const flashes = [];
+  if (deletedDone) flashes.push({ type: 'yellow', text: '<strong>Предмет перемещён в корзину.</strong> Восстановить можно в <a href="/admin/trash">/admin/trash</a>.' });
+  if (finishedDone) flashes.push({ type: 'green', text: 'Статус предмета изменён.' });
+  if (teacherChanged) flashes.push({ type: 'green', text: '<strong>Преподаватель изменён.</strong> Предмет полностью перешёл к новому преподавателю.' });
+  const filters = [
+    { href: buildUrl('/admin/subjects', baseQuery, { status: '' }), label: 'Все', active: !status },
+    { href: buildUrl('/admin/subjects', baseQuery, { status: 'active' }), label: 'Активные', active: status === 'active' },
+    { href: buildUrl('/admin/subjects', baseQuery, { status: 'finished' }), label: 'Завершённые', active: status === 'finished' }
+  ];
+  const activeById = new Map(activeTeachers.map((t) => [Number(t.id), t]));
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Все предметы',
+    actions: [
+      { href: '/admin/trash', label: 'Корзина', class: 'btn-ghost btn-sm' },
+      { href: '/admin', label: '← В админку' }
+    ],
+    flashes
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    <strong>«В корзину»</strong> — soft-delete: темы, задания и работы скрываются,
+    файлы сохраняются до hard-delete из /admin/trash.<br>
+    <strong>«Завершить»</strong> — статус finished: студенты видят предмет readonly,
+    новые действия недоступны. Преподаватель может «Возобновить».<br>
+    <strong>Смена преподавателя</strong> перекидывает предмет целиком: задания,
+    работы и чаты по работам.
+  </div>
+  <%- include('../../shared/ui/filter-chips', { items: filters }) %>
+  <form method="GET" action="/admin/subjects" class="inline-add-form">
+    <input type="hidden" name="status" value="<%= status %>">
+    <input type="search" name="q" value="<%= q %>" maxlength="100"
+      placeholder="Поиск по названию или описанию" class="search-input-240">
+    <select name="teacher">
+      <option value="">Все преподаватели</option>
+      <% teachers.forEach((t) => { %>
+        <option value="<%= t.id %>" <%= String(teacherId) === String(t.id) ? 'selected' : '' %>><%= t.name %></option>
+      <% }) %>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q || teacherId) { %>
+      <a href="/admin/subjects" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <section class="card">
+    <div class="card-header"><h2>Предметы (<%= rows.length %>)</h2></div>
+<%- include('../../shared/ui/bulk-toolbar', {
+  entity: 'subjects',
+  scope: 'subjects',
+  actions: [
+    {
+      href: '/admin/bulk-finish',
+      label: 'Завершить',
+      class: 'btn-warning btn-sm',
+      method: 'POST',
+      confirm: 'Завершить выбранные предметы? Студенты увидят их readonly.',
+      okText: 'Завершить',
+      okClass: 'warning'
+    },
+    {
+      href: '/admin/bulk-activate',
+      label: 'Возобновить',
+      class: 'btn-success btn-sm',
+      method: 'POST',
+      confirm: 'Возобновить выбранные предметы?'
+    },
+    {
+      href: '/admin/bulk-delete',
+      label: 'В корзину',
+      class: 'btn-danger btn-sm',
+      method: 'POST',
+      confirm: 'Переместить выбранные предметы в корзину? Файлы сохранятся до hard-delete из /admin/trash.',
+      okText: 'В корзину',
+      okClass: 'danger'
+    }
+  ]
+}) %>
+    <div class="info-box info-box-blue">
+      Клик по названию открывает карточку: смена преподавателя, статус, удаление в корзину.
+    </div>
+    <% if (rows.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', {
+        primary: 'Предметов не найдено.',
+        action: (q || teacherId) ? { href: '/admin/subjects', label: 'Сбросить фильтры' } : null,
+        wrapper: false
+      }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="bulk-th"><input type="checkbox" data-bulk-all aria-label="Выбрать всех"></th>
+              <th class="th-50">ID</th>
+              <th>Название</th>
+              <th class="th-260">Преподаватель</th>
+              <th class="th-80">Тем</th>
+              <th class="th-80">Заданий</th>
+              <th class="th-80">Групп</th>
+              <th class="th-120">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => {
+              const isActive = r.status === 'active';
+            %>
+              <tr class="<%= !isActive ? 'cell-secondary' : '' %>">
+                <td class="bulk-td"><input type="checkbox" data-bulk-checkbox data-bulk-scope="subjects" value="<%= r.id %>" aria-label="Выбрать предмет <%= r.title %>"></td>
+                <td><%= r.id %></td>
+                <td>
+                  <button type="button" class="link-button"
+                          data-modal-open="subject-modal-<%= r.id %>"
+                          title="Открыть карточку">
+                    <%= r.title %>
+                  </button>
+                  <% if (r.description) { %>
+                    <div class="cell-secondary"><%= r.description.slice(0, 80) %><%= r.description.length > 80 ? '…' : '' %></div>
+                  <% } %>
+                </td>
+                <td class="cell-secondary">
+                  <%= r.teacher_name %>
+                  <% if (r.teacher_status !== 'active') { %>
+                    <span class="status-badge status-muted">завершён</span>
+                  <% } %>
+                </td>
+                <td><%= r.topics_count %></td>
+                <td><%= r.assignments_count %></td>
+                <td><%= r.groups_count %></td>
+                <td>
+                  <span class="status-badge <%= isActive ? 'status-success' : 'status-muted' %>">
+                    <%= isActive ? 'активен' : 'завершён' %>
+                  </span>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/subjects', baseQuery, { page: p > 1 ? p : '' })
+      }) %>
+    <% } %>
+  </section>
+</div>
+
+<%# ═══════════════ МОДАЛКИ РЕДАКТИРОВАНИЯ ═══════════════ %>
+<% rows.forEach((r) => {
+  const isActive = r.status === 'active';
+  const currentInActive = activeById.has(Number(r.teacher_id));
+%>
+  <div class="modal" id="subject-modal-<%= r.id %>" hidden role="dialog" aria-modal="true"
+       aria-labelledby="subject-modal-title-<%= r.id %>">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="subject-modal-title-<%= r.id %>">
+          Предмет #<%= r.id %>
+        </h3>
+        <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>Название и описание</h4>
+        <div class="info-list">
+          <div><strong>Название</strong><span><%= r.title %></span></div>
+          <% if (r.description) { %>
+            <div><strong>Описание</strong><span class="text-pre"><%= r.description %></span></div>
+          <% } %>
+          <div><strong>Тем</strong><span><%= r.topics_count %></span></div>
+          <div><strong>Заданий</strong><span><%= r.assignments_count %></span></div>
+          <div><strong>Групп</strong><span><%= r.groups_count %></span></div>
+        </div>
+        <div class="hint">
+          Название и описание предмета редактирует его преподаватель
+          через «Мои предметы» → «Редактировать».
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Преподаватель</h4>
+        <form method="POST" action="/admin/subjects/<%= r.id %>/change-teacher"
+              class="form-row"
+              data-confirm="Сменить преподавателя предмета «<%= r.title %>»?&#10;&#10;Перейдёт новому преподавателю:&#10;• предмет;&#10;• все темы и задания;&#10;• все работы студентов;&#10;• чаты по работам.&#10;&#10;Старый потеряет доступ к предмету, заданиям, работам и чатам.&#10;Не изменится: группы и подписки.&#10;&#10;Продолжить?"
+              data-confirm-ok-text="Сменить"
+              data-confirm-ok-class="primary">
+          <input type="hidden" name="redirect" value="<%= redirectTo %>">
+          <select name="teacher_id" required>
+            <% if (!currentInActive) { %>
+              <option value="<%= r.teacher_id %>" selected>
+                <%= r.teacher_name %> (завершён)
+              </option>
+            <% } %>
+            <% activeTeachers.forEach((t) => { %>
+              <option value="<%= t.id %>" <%= (currentInActive && Number(t.id) === Number(r.teacher_id)) ? 'selected' : '' %>><%= t.name %></option>
+            <% }) %>
+          </select>
+          <button type="submit" class="btn btn-success btn-sm">Сменить</button>
+        </form>
+        <div class="hint">
+          Предмет целиком переходит новому преподавателю: задания, работы, чаты.
+          Старый теряет доступ.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Статус</h4>
+        <div class="actions-row">
+          <span class="status-badge <%= isActive ? 'status-success' : 'status-muted' %>">
+            <%= isActive ? 'активен' : 'завершён' %>
+          </span>
+          <form method="POST" action="/admin/subjects/<%= r.id %>/toggle-status"
+                class="inline-form"
+                data-confirm="<%= isActive
+                  ? 'Завершить предмет «' + r.title + '»? Студенты увидят его readonly.'
+                  : 'Возобновить предмет «' + r.title + '»?' %>"
+                data-confirm-ok-text="<%= isActive ? 'Завершить' : 'Возобновить' %>"
+                data-confirm-ok-class="<%= isActive ? 'warning' : 'success' %>">
+            <button type="submit" class="btn <%= isActive ? 'btn-warning' : 'btn-success' %> btn-sm">
+              <%= isActive ? 'Завершить' : 'Возобновить' %>
+            </button>
+          </form>
+        </div>
+        <div class="hint">
+          Завершённый предмет даёт студентам readonly-доступ к истории. Новые сдачи и чаты недоступны.
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Удаление</h4>
+        <form method="POST" action="/admin/subjects/<%= r.id %>/delete"
+              class="form-row"
+              data-confirm="Переместить предмет «<%= r.title %>» в корзину?&#10;Темы: <%= r.topics_count %>, задания: <%= r.assignments_count %>, групп: <%= r.groups_count %>.&#10;Файлы сохранятся до hard-delete из /admin/trash."
+              data-confirm-ok-text="В корзину"
+              data-confirm-ok-class="danger">
+          <button type="submit" class="btn btn-danger btn-sm">В корзину</button>
+        </form>
+        <div class="hint">
+          Soft-delete. Данные и файлы сохраняются до hard-delete из
+          <a href="/admin/trash">корзины</a>.
+        </div>
+      </div>
+
+      <div class="actions-row" style="justify-content: flex-end; margin-top: var(--space-3);">
+        <button type="button" class="btn btn-ghost" data-modal-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<%- include('../../layout/footer') %>

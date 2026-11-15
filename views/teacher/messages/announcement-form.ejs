@@ -1,0 +1,47 @@
+<%- include('../../layout/header', { title: mode === 'create' ? 'Новое объявление' : 'Редактировать объявление' }) %>
+<div class="content-wrapper narrow">
+  <%- include('../../shared/page-top', {
+    title: mode === 'create' ? 'Новое объявление' : 'Редактировать объявление',
+    subtitle: group.name,
+    back: { href: `/g/${group.id}/announcements` }
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Объявление увидят <strong>все студенты группы <%= group.name %></strong> в разделе
+    «Объявления» и получат бейдж в меню. Это не чат — отвечать нельзя.
+    «Закрепить» поднимает объявление вверх списка.
+  </div>
+  <section class="card">
+    <% if (error) { %><div class="info-box info-box-red"><%= error %></div><% } %>
+    <form action="<%= mode === 'create'
+        ? '/g/' + group.id + '/announcements'
+        : '/g/' + group.id + '/announcements/' + announcement.id %>"
+          method="POST">
+      <div class="form-grid">
+        <label for="ann-title" class="form-label">Заголовок <span class="required">*</span></label>
+        <div class="field">
+          <input type="text" id="ann-title" name="title" required maxlength="200"
+            value="<%= announcement.title || '' %>">
+        </div>
+        <label for="ann-content" class="form-label">Текст</label>
+        <div class="field">
+          <textarea id="ann-content" name="content" maxlength="5000" rows="6"><%= announcement.content || '' %></textarea>
+        </div>
+        <label for="ann-pinned" class="form-label">Закрепить</label>
+        <div class="field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="ann-pinned" name="pinned" value="1"
+              <%= announcement.pinned ? 'checked' : '' %>>
+            <span>Показывать вверху списка</span>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">
+            <%= mode === 'create' ? 'Опубликовать' : 'Сохранить' %>
+          </button>
+          <a href="/g/<%= group.id %>/announcements" class="btn btn-ghost">Отмена</a>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

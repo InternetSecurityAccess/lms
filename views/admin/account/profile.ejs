@@ -1,0 +1,71 @@
+<%- include('../../layout/header', { title: 'Профиль администратора' }) %>
+<div class="content-wrapper narrow">
+  <%- include('../../shared/page-top', {
+    title: 'Профиль администратора',
+    actions: [{ href: '/admin', label: '← В админку' }]
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Здесь меняются логин и пароль администратора. Смена логина или пароля
+    <strong>завершает все остальные ваши сессии</strong> — на других устройствах
+    потребуется войти заново. Текущая сессия сохраняется.
+  </div>
+  <section class="card">
+    <div class="card-header"><h2>Мои данные</h2></div>
+    <div class="info-list">
+      <div>
+        <strong>Роль</strong>
+        <span><span class="status-badge status-danger">Администратор</span></span>
+      </div>
+      <div>
+        <strong>Текущий логин</strong>
+        <span><code class="user-select-all"><%= me.name %></code></span>
+      </div>
+      <div>
+        <strong>Создан</strong>
+        <span><%= formatDate(me.created_at, true) %></span>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Смена логина</h2></div>
+    <form action="/admin/profile/change-name" method="POST" class="inline-add-form">
+      <input type="text" name="name" value="<%= me.name %>" required maxlength="200"
+        placeholder="Новый логин" class="search-input-260">
+      <button type="submit" class="btn btn-success btn-sm"
+        data-confirm="Сменить логин администратора? В следующий раз входить по новому. Все остальные сессии завершатся."
+        data-confirm-ok-text="Сменить"
+        data-confirm-ok-class="primary">
+        Сменить логин
+      </button>
+    </form>
+  </section>
+  <section class="card">
+    <div class="card-header"><h2>Смена пароля</h2></div>
+    <% if (error) { %><div class="info-box info-box-red"><%= error %></div><% } %>
+    <% if (success) { %><div class="info-box info-box-green"><%= success %></div><% } %>
+    <form action="/admin/profile/change-password" method="POST">
+      <div class="form-grid">
+        <label for="old-pass" class="form-label">Текущий пароль</label>
+        <div class="field">
+          <input type="password" id="old-pass" name="old_password" required maxlength="200" autocomplete="current-password">
+        </div>
+        <label for="new-pass" class="form-label">Новый пароль</label>
+        <div class="field">
+          <input type="password" id="new-pass" name="new_password" required
+            minlength="<%= adminPasswordRequirements[0]?.text.match(/\d+/)?.[0] || 10 %>"
+            maxlength="200" autocomplete="new-password">
+          <div class="hint">
+            <div>Требования к паролю администратора:</div>
+            <ul class="hint-list">
+              <% adminPasswordRequirements.forEach((r) => { %><li><%= r.text %></li><% }) %>
+            </ul>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-success">Сохранить</button>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

@@ -1,0 +1,80 @@
+<%- include('../../layout/header', { title: 'Объявления: ' + group.name }) %>
+<div class="content-wrapper">
+  <div class="top-bar">
+    <h1 class="top-bar-title">Объявления: <%= group.name %></h1>
+    <div class="top-bar-actions">
+      <a href="/g/<%= group.id %>/announcements/new" class="btn btn-primary btn-sm">+ Новое</a>
+      <a href="/g/<%= group.id %>" class="btn btn-ghost">← К группе</a>
+    </div>
+  </div>
+  <% if (created) { %>
+    <div class="info-box info-box-green" role="status">Объявление опубликовано.</div>
+  <% } %>
+  <% if (updated) { %>
+    <div class="info-box info-box-green" role="status">Изменения сохранены.</div>
+  <% } %>
+  <% if (deleted) { %>
+    <div class="info-box info-box-yellow" role="status">Объявление удалено.</div>
+  <% } %>
+
+  <div class="info-box info-box-blue info-box-how">
+    <strong>Здесь только ваши объявления.</strong>
+    Вы видите и редактируете только те, которые создали сами
+    для группы «<%= group.name %>».
+    Объявления других преподавателей этой группы вам не показываются, но
+    <strong>студенты видят их все</strong> — от всех преподавателей, ведущих группу.
+  </div>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Мои объявления (<%= announcements.length %>)</h2>
+    </div>
+    <% if (announcements.length === 0) { %>
+      <div class="empty-state">
+        <p>Вы пока не создавали объявлений в этой группе.</p>
+        <p class="cell-secondary">
+          Студенты увидят объявление сразу после публикации.
+        </p>
+        <a href="/g/<%= group.id %>/announcements/new" class="btn btn-primary mt-3">
+          Создать первое
+        </a>
+      </div>
+    <% } else { %>
+      <% announcements.forEach((a) => { %>
+        <article class="card mb-3">
+          <div class="card-header">
+            <h2><% if (a.pinned) { %>📌 <% } %><%= a.title %></h2>
+            <span class="cell-secondary">
+              <%= a.teacher_name %> · <%= formatDate(a.created_at, true) %>
+            </span>
+          </div>
+          <% if (a.content) { %>
+            <div class="message-text text-pre"><%= a.content %></div>
+          <% } %>
+          <div class="chat-meta">
+            <span>Прочитано: <strong><%= a.read_count %></strong> из <%= a.total_students %></span>
+          </div>
+          <div class="actions-row">
+            <a href="/g/<%= group.id %>/announcements/<%= a.id %>/edit" class="btn btn-secondary btn-sm">Редактировать</a>
+            <form method="POST" action="/g/<%= group.id %>/announcements/<%= a.id %>/pin" class="inline-form"
+              data-confirm="<%= a.pinned
+                ? 'Открепить объявление «' + a.title + '»? Оно останется в списке, но не вверху.'
+                : 'Закрепить объявление «' + a.title + '»? Оно поднимется вверх списка.' %>"
+              data-confirm-ok-text="<%= a.pinned ? 'Открепить' : 'Закрепить' %>"
+              data-confirm-ok-class="primary">
+              <button type="submit" class="btn btn-ghost btn-sm"><%= a.pinned ? 'Открепить' : 'Закрепить' %></button>
+            </form>
+            <form method="POST" action="/g/<%= group.id %>/announcements/<%= a.id %>/delete"
+              class="inline-form"
+              data-confirm="Удалить объявление «<%= a.title %>»?"
+              data-confirm-ok-text="Удалить"
+              data-confirm-ok-class="danger">
+              <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+            </form>
+          </div>
+        </article>
+      <% }) %>
+    <% } %>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

@@ -1,0 +1,74 @@
+<%- include('../../layout/header', { title: topic.title }) %>
+<div class="content-wrapper medium">
+  <%- include('../../shared/page-top', {
+    title: topic.title,
+    subtitle: subject.title,
+    actions: [
+      { href: `/subjects/${subject.id}/topics/${topic.id}/edit`, label: 'Редактировать', class: 'btn-secondary btn-sm' }
+    ],
+    back: { href: `/subjects/${subject.id}/topics` },
+    flashes: [
+      ...(query.created ? [{ type: 'green', text: '<strong>Тема создана.</strong>' }] : []),
+      ...(query.updated ? [{ type: 'green', text: 'Изменения сохранены.' }] : [])
+    ]
+  }) %>
+  <div class="info-box <%= topic.status === 'published' ? 'info-box-green' : 'info-box-yellow' %>">
+    <strong><%= topic.status === 'published' ? 'Опубликовано'
+      : topic.status === 'finished' ? 'Завершено'
+      : 'Черновик' %></strong>
+    · Предмет: <a href="/subjects/<%= subject.id %>/topics"><%= subject.title %></a>
+    <% if (topic.published_at) { %>· с <%= formatDate(topic.published_at) %><% } %>
+  </div>
+  <% if (topic.description) { %>
+    <section class="card">
+      <div class="card-header"><h2>Описание</h2></div>
+      <div class="topic-html">
+        <% const desc = String(topic.description); %>
+        <% if (desc.includes('<')) { %><%- sanitizeHtml(desc) %><% } else { %><div class="text-pre"><%= desc %></div><% } %>
+      </div>
+    </section>
+  <% } %>
+  <% if ((topic.attachments && topic.attachments.length > 0) || topic.content_url) { %>
+    <section class="card">
+      <div class="card-header"><h2>Материалы</h2></div>
+      <% if (topic.attachments && topic.attachments.length > 0) { %>
+        <%- include('../../shared/ui/attachments-list', {
+          items: topic.attachments, empty: '—'
+        }) %>
+      <% } %>
+      <% if (topic.content_url) { %>
+        <div class="info-box info-box-blue mt-2">
+          🔗 <a href="<%= topic.content_url %>" target="_blank" rel="noopener"><%= topic.content_url %></a>
+        </div>
+      <% } %>
+    </section>
+  <% } %>
+  <% if (topic.homework_text || topic.assignment_url) { %>
+    <section class="card">
+      <div class="card-header"><h2>Домашнее задание</h2></div>
+      <% if (topic.homework_text) { %><div class="text-pre"><%= topic.homework_text %></div><% } %>
+      <% if (topic.assignment_url) { %>
+        <div class="info-box info-box-blue mt-2">
+          🔗 <a href="<%= topic.assignment_url %>" target="_blank" rel="noopener"><%= topic.assignment_url %></a>
+        </div>
+      <% } %>
+    </section>
+  <% } %>
+  <% if (!topic.description
+        && !(topic.attachments && topic.attachments.length)
+        && !topic.content_url
+        && !topic.homework_text
+        && !topic.assignment_url) { %>
+    <div class="info-box info-box-blue info-box-how">
+      Тема пока пустая. Добавьте описание, файл или ссылку через «Редактировать».
+      Опубликованная тема видна студентам ваших привязанных групп; черновик — только вам.
+    </div>
+    <%- include('../../shared/ui/empty-state', {
+      primary: 'Тема пока пустая.',
+      secondary: 'Добавьте описание, файл или ссылку через «Редактировать».',
+      action: { href: `/subjects/${subject.id}/topics/${topic.id}/edit`, label: 'Редактировать', class: 'btn-primary' }
+    }) %>
+  <% } %>
+</div>
+<%- include('../../shared/ui/file-viewer') %>
+<%- include('../../layout/footer') %>

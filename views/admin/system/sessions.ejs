@@ -1,0 +1,99 @@
+<%- include('../../layout/header', { title: 'Активные сессии' }) %>
+<%
+  const roleLabel = { admin: 'Админ', teacher: 'Преподаватель', student: 'Студент' };
+  const roleIcon = { admin: '🛡', teacher: '👨‍🏫', student: '🎓' };
+  const baseQuery = { q: q || '', role: roleFilter || 'all' };
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Активные сессии',
+    actions: [{ href: '/admin', label: '← В админку' }],
+    flashes: [
+      ...(justDeleted ? [{ type: 'green', text: 'Сессия удалена.' }] : []),
+      ...(justLoggedOut ? [{ type: 'green', text: 'Все сессии пользователя завершены.' }] : [])
+    ]
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    В списке — кто сейчас в системе. «Удалить сессию» разлогинивает конкретное устройство.
+    «Все сессии» повышает версию сессии пользователя: все его устройства выйдут на следующем запросе.
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Пользователей</div>
+      <div class="stat-value"><%= totalUsers %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Устройств/сессий</div>
+      <div class="stat-value"><%= totalSessions %></div>
+    </div>
+  </div>
+  <%- include('../../shared/ui/filter-chips', {
+    items: [
+      { href: buildUrl('/admin/sessions', baseQuery, { role: 'all' }),     label: 'Все',           active: roleFilter === 'all' },
+      { href: buildUrl('/admin/sessions', baseQuery, { role: 'admin' }),   label: 'Админы',        active: roleFilter === 'admin' },
+      { href: buildUrl('/admin/sessions', baseQuery, { role: 'teacher' }), label: 'Преподаватели', active: roleFilter === 'teacher' },
+      { href: buildUrl('/admin/sessions', baseQuery, { role: 'student' }), label: 'Студенты',      active: roleFilter === 'student' }
+    ]
+  }) %>
+  <form method="GET" action="/admin/sessions" class="inline-add-form">
+    <% if (roleFilter !== 'all') { %><input type="hidden" name="role" value="<%= roleFilter %>"><% } %>
+    <input type="search" name="q" value="<%= q %>" maxlength="100"
+      placeholder="Поиск по ФИО или логину" class="search-input">
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q) { %><a href="<%= buildUrl('/admin/sessions', baseQuery, { q: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a><% } %>
+  </form>
+  <% if (grouped.length === 0) { %>
+    <%- include('../../shared/ui/empty-state', {
+      primary: (q || roleFilter !== 'all') ? 'Ничего не найдено.' : 'Активных сессий нет.',
+      action: (q || roleFilter !== 'all') ? { href: '/admin/sessions', label: 'Сбросить фильтры' } : null
+    }) %>
+  <% } else { %>
+    <% grouped.forEach((g) => { %>
+      <section class="card mb-3">
+        <div class="card-header">
+          <h2>
+            <%= roleIcon[g.role] || '•' %> <%= g.userName %>
+            <span class="status-badge status-info ml-1"><%= roleLabel[g.role] %></span>
+          </h2>
+          <div class="actions-row">
+            <span class="cell-secondary"><%= g.userLogin %></span>
+            <form method="POST" action="/admin/sessions/user/<%= g.role %>/<%= g.userId %>/logout-all"
+              class="inline-form"
+              data-confirm="Завершить ВСЕ сессии пользователя <%= g.userName %>?
+
+Все его устройства будут разлогинены."
+              data-confirm-ok-text="Завершить"
+              data-confirm-ok-class="danger">
+              <button type="submit" class="btn btn-danger btn-sm">Все сессии</button>
+            </form>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>SID</th><th>Истекает</th><th class="th-120"></th></tr>
+            </thead>
+            <tbody>
+              <% g.sessions.forEach((s) => { %>
+                <tr>
+                  <td class="cell-secondary"><code class="user-select-all"><%= s.sidShort %></code></td>
+                  <td class="cell-secondary"><%= formatDate(s.expire, true) %></td>
+                  <td>
+                    <form method="POST" action="/admin/sessions/<%= encodeURIComponent(s.sid) %>/delete"
+                      class="inline-form"
+                      data-confirm="Завершить эту сессию? Устройство будет разлогинено."
+                      data-confirm-ok-text="Завершить"
+                      data-confirm-ok-class="danger">
+                      <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    <% }) %>
+  <% } %>
+</div>
+<%- include('../../layout/footer') %>

@@ -1,0 +1,79 @@
+<%- include('../../layout/header', { title: topic.quiz_title || topic.topic_title }) %>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: topic.quiz_title || topic.topic_title,
+    actions: [
+      { href: '/my-subjects/' + topic.subject_id, label: '← ' + topic.subject_title, class: 'btn-ghost btn-sm' }
+    ]
+  }) %>
+
+  <% if (topic.description) { %>
+    <div class="info-box info-box-blue">
+      <%- typeof renderText === 'function' ? renderText(topic.description) : topic.description %>
+    </div>
+  <% } %>
+
+  <div class="quiz-info-grid">
+    <div class="quiz-info-cell">
+      <div class="label">Вопросов</div>
+      <div class="value"><%= questionsCount %></div>
+    </div>
+    <div class="quiz-info-cell">
+      <div class="label">Проходной балл</div>
+      <div class="value"><%= topic.pass_percent %>%</div>
+    </div>
+    <div class="quiz-info-cell">
+      <div class="label">Попытки</div>
+      <div class="value">
+        <%= attemptsUsed %> / <%= topic.max_attempts === 0 ? '∞' : topic.max_attempts %>
+      </div>
+    </div>
+    <div class="quiz-info-cell">
+      <div class="label">Время</div>
+      <div class="value"><%= topic.time_limit_minutes ? topic.time_limit_minutes + ' мин' : '—' %></div>
+    </div>
+  </div>
+
+  <% if (readonly) { %>
+    <div class="info-box info-box-yellow">
+      Тест завершён. Просмотр результата доступен, но пройти заново — нельзя.
+    </div>
+  <% } else if (inProgress) { %>
+    <div class="info-box info-box-blue">
+      <strong>У вас есть незавершённая попытка.</strong>
+      <% if (topic.time_limit_minutes) { %>Время продолжает идти с момента старта.<% } %>
+      <div style="margin-top:10px;">
+        <a href="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz/attempt/<%= inProgress.id %>"
+           class="btn btn-primary">Продолжить тест</a>
+      </div>
+    </div>
+  <% } else if (best) { %>
+    <div class="quiz-result-hero">
+      <div class="score <%= best.passed ? 'pass' : 'fail' %>">
+        <%= best.score %> / <%= best.max_score %>
+      </div>
+      <div class="percent"><%= percent %>%</div>
+      <div class="verdict <%= best.passed ? 'pass' : 'fail' %>">
+        <%= best.passed ? 'Сдал' : 'Не сдал' %>
+      </div>
+      <div style="margin-top:12px;">
+        <a href="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz/attempt/<%= best.id %>/result"
+           class="btn">Посмотреть результат</a>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (!readonly && canStart && !inProgress) { %>
+    <form method="post"
+          action="/my-subjects/<%= topic.subject_id %>/topics/<%= topic.id %>/quiz/start"
+          style="margin-top:16px;">
+      <button type="submit" class="btn btn-primary">
+        <%= (best || attemptsUsed > 0) ? 'Пройти заново' : 'Начать тест' %>
+      </button>
+    </form>
+  <% } else if (!readonly && !inProgress && topic.max_attempts > 0 && attemptsLeft === 0) { %>
+    <div class="info-box info-box-red">Попытки закончились.</div>
+  <% } %>
+</div>
+<link rel="stylesheet" href="/css/quiz.css">
+<%- include('../../layout/footer') %>

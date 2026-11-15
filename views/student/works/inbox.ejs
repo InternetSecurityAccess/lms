@@ -1,0 +1,143 @@
+<%- include('../../layout/header', { title: 'Уведомления' }) %>
+<%
+  const basePath = '/my-inbox';
+  const baseQuery = { filter: filter || 'unread', q: q || '', sort: sort || 'date_desc' };
+  const filters = [
+    { href: buildUrl(basePath, baseQuery, { filter: 'unread' }),   label: `Непрочитанные (${counts.unread})`, active: filter === 'unread' },
+    { href: buildUrl(basePath, baseQuery, { filter: 'quizzes' }),  label: 'Тесты', active: filter === 'quizzes' },
+    { href: buildUrl(basePath, baseQuery, { filter: 'rejected' }), label: `Отклонённые (${counts.rejected})`, active: filter === 'rejected' },
+    { href: buildUrl(basePath, baseQuery, { filter: 'accepted' }), label: `Принятые (${counts.accepted})`,    active: filter === 'accepted' }
+  ];
+  // В режиме «Тесты» показываем попытки тестов вместо работ.
+  if (filter === 'quizzes') rows = quizRows || [];
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Уведомления',
+    subtitle: 'Новые работы и ответы преподавателей',
+    actions: [{ href: '/my-assignments', label: 'Мои задания →', class: 'btn-secondary btn-sm' }]
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    <strong>Здесь только новое.</strong>
+    Как только вы открываете работу, уведомление по ней исчезает из этого списка.
+    Полный список работ и их текущий статус — в <a href="/my-assignments">«Моих заданиях»</a>.
+  </div>
+  <%- include('../../shared/ui/filter-chips', { items: filters }) %>
+  <form method="GET" action="<%= basePath %>" class="inline-add-form">
+    <input type="hidden" name="filter" value="<%= filter %>">
+    <input type="search" name="q" value="<%= q %>"
+      placeholder="Поиск: ФИО, тема, группа, задание"
+      maxlength="100" class="search-input">
+    <select name="sort">
+      <option value="date_desc" <%= sort === 'date_desc' ? 'selected' : '' %>>Сначала новые</option>
+      <option value="date_asc" <%= sort === 'date_asc' ? 'selected' : '' %>>Сначала старые</option>
+      <option value="name_asc" <%= sort === 'name_asc' ? 'selected' : '' %>>По имени (А→Я)</option>
+      <option value="name_desc" <%= sort === 'name_desc' ? 'selected' : '' %>>По имени (Я→А)</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+    <% if (q) { %>
+      <a href="<%= buildUrl(basePath, baseQuery, { q: '' }) %>" class="btn btn-ghost btn-sm">Сбросить</a>
+    <% } %>
+  </form>
+  <% if (rows.length === 0) { %>
+    <%- include('../../shared/ui/empty-state', {
+      primary: q ? `Ничего не найдено по запросу «${q}».`
+        : filter === 'unread'   ? 'Новых уведомлений нет. Всё прочитано.'
+        : filter === 'quizzes'  ? 'Уведомлений о результатах тестов нет.'
+        : filter === 'rejected' ? 'Нет непрочитанных отклонённых работ.'
+        : filter === 'accepted' ? 'Нет непрочитанных принятых работ.'
+        : 'Здесь пока пусто.',
+      action: q ? { href: buildUrl(basePath, baseQuery, { q: '' }), label: 'Сбросить поиск' } : null
+    }) %>
+  <% } else { %>
+    <section class="card">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="th-220">Преподаватель</th>
+              <th>Тема / Задание</th>
+              <th class="th-130">Статус</th>
+              <th>Последнее сообщение</th>
+              <th class="th-160">Когда</th>
+              <th class="th-120"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => { %>
+              <tr>
+                <td>
+                  <div class="cell-primary"><%= r.kind === 'quiz' ? r.teacher_name : r.counterpart_name %></div>
+                  <div class="cell-secondary"><%= r.group_name %></div>
+                </td>
+                <td>
+                  <% if (r.kind === 'quiz') { %>
+                    <div><%= r.quiz_title %></div>
+                    <div class="cell-secondary"><%= r.subject_title %></div>
+                  <% } else { %>
+                    <div><%= r.topic %></div>
+                    <% if (r.assignment_title) { %>
+                      <div class="cell-secondary"><%= r.assignment_title %></div>
+                    <% } %>
+                  <% } %>
+                </td>
+                <td>
+                  <div class="actions-row" style="gap: var(--space-1);">
+                    <% if (r.kind === 'quiz') { %>
+                      <span class="status-badge <%= r.passed ? 'status-success' : 'status-danger' %>">
+                        <%= r.passed ? 'Пройден' : 'Не пройден' %>
+                      </span>
+                    <% } else { %>
+                      <%- include('../../shared/ui/status-badge', { status: r.status }) %>
+                    <% } %>
+                    <% if (r.ai_flag) { %>
+                      <span class="status-badge status-flag" title="Работа отмечена как сделанная с ИИ">🤖</span>
+                    <% } %>
+                  </div>
+                </td>
+                <td>
+                  <% if (r.kind === 'quiz') { %>
+                    <div class="cell-secondary">
+                      Результат: <%= r.score %> из <%= r.max_score %>
+                    </div>
+                  <% } else if (r.last_message && r.unread_count > 0) { %>
+                    <div class="cell-secondary">
+                      <span class="unread-badge mr-1"><%= r.unread_count %></span>
+                      <%= r.last_message.slice(0, 80) %><%= r.last_message.length > 80 ? '…' : '' %>
+                    </div>
+                  <% } else if (r.unread_status) { %>
+                    <div class="cell-secondary">
+                      🔔 <% if (r.status === 'accepted') { %>Работа принята<% } else if (r.status === 'rejected') { %>Работа отклонена<% } else { %>Статус изменён<% } %>
+                    </div>
+                  <% } else if (r.ai_flag_unread) { %>
+                    <div class="cell-secondary">
+                      🤖 Преподаватель отметил работу как «Сделано с ИИ»
+                    </div>
+                  <% } else { %>
+                    <span class="cell-secondary">—</span>
+                  <% } %>
+                </td>
+                <td class="cell-secondary text-nowrap">
+                  <%= formatDate((r.kind === 'quiz' ? r.finished_at : (r.last_message_at || r.uploaded_at)), true) %>
+                </td>
+                <td>
+                  <a href="<%= r.open_url %>" class="btn btn-primary btn-sm">
+                    Открыть
+                    <% if (r.kind === 'quiz') { %>
+                      <% if (r.unread) { %><span class="unread-badge">🔔</span><% } %>
+                    <% } else if (r.unread && r.unread_count > 0) { %>
+                      <span class="unread-badge"><%= r.unread_count %></span>
+                    <% } else if (r.unread_status || r.ai_flag_unread) { %>
+                      <span class="unread-badge">🔔</span>
+                    <% } %>
+                  </a>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+</div>
+<%- include('../../layout/footer') %>

@@ -1,0 +1,171 @@
+<%- include('../../layout/header', { title: 'Аудит' }) %>
+<%
+  const baseQuery = {
+    q: q || '',
+    actor_type: actorType !== 'all' ? actorType : '',
+    action: action || '',
+    period: period !== 'all' ? period : ''
+  };
+  const exportParams = new URLSearchParams();
+  if (q) exportParams.set('q', q);
+  if (actorType !== 'all') exportParams.set('actor_type', actorType);
+  if (action) exportParams.set('action', action);
+  if (period !== 'all') exportParams.set('period', period);
+  const exportHref = '/admin/audit/export' + (exportParams.toString() ? '?' + exportParams.toString() : '');
+  const actorIcon = { admin: '🛡', teacher: '👨‍🏫', student: '🎓', anonymous: '?' };
+  const actorLabel = { admin: 'Администратор', teacher: 'Преподаватель', student: 'Студент', anonymous: 'Аноним' };
+%>
+<div class="content-wrapper">
+  <%- include('../../shared/page-top', {
+    title: 'Аудит',
+    actions: [
+      { href: exportHref, label: '⬇ Экспорт CSV', class: 'btn-secondary btn-sm' },
+      { href: '/admin/slow-log', label: 'Slow-log', class: 'btn-ghost btn-sm' },
+      { href: '/admin/settings', label: 'Настройки', class: 'btn-ghost btn-sm' },
+      { href: '/admin', label: '← В админку' }
+    ],
+    flashes: cleaned
+      ? [{
+          type: 'green',
+          text: '<strong>Очищено.</strong>'
+            + (cleanupCount != null ? ` Удалено ${cleanupCount} записей.` : '')
+        }]
+      : []
+  }) %>
+  <div class="info-box info-box-blue info-box-how">
+    Журнал действий. <strong>Пишутся всегда</strong>: входы, брутфорс, rate limit,
+    очистки журнала и slow-log, отклонения заявок — это жёсткий минимум.
+    Остальные действия настраиваются в <a href="/admin/settings">Настройках</a>:
+    можно включить «Всегда», замьютить «Не писать» или временно включить
+    <strong>расширенный аудит</strong>.
+    <br>
+    <% if (extendedAllActive) { %>
+      <strong>🔍 Отладка: пишется всё.</strong> Mute-настройки игнорируются до
+      <strong><%= extendedAuditUntilText || '—' %></strong>.
+    <% } else if (extendedAuditActive) { %>
+      <strong>Включён расширенный аудит</strong> — сейчас пишется больше действий,
+      чем обычно. Автоматически выключится
+      <strong><%= extendedAuditUntilText || '—' %></strong>.
+    <% } else { %>
+      <strong>Расширенный аудит выключен.</strong> Пишутся только критичные
+      и явно включённые через «Всегда».
+    <% } %>
+    <br>
+    Автоматическая ротация: старше <strong><%= auditRetentionDays %></strong> дней, раз в сутки.
+  </div>
+  <section class="card">
+    <form method="GET" action="/admin/audit" class="inline-add-form">
+      <input type="search" name="q" value="<%= q %>"
+        placeholder="Поиск по действию, имени, деталям или IP"
+        maxlength="100" class="search-input-240">
+      <select name="actor_type">
+        <option value="all" <%= actorType === 'all' ? 'selected' : '' %>>Все акторы</option>
+        <option value="admin" <%= actorType === 'admin' ? 'selected' : '' %>>Администратор</option>
+        <option value="teacher" <%= actorType === 'teacher' ? 'selected' : '' %>>Преподаватель</option>
+        <option value="student" <%= actorType === 'student' ? 'selected' : '' %>>Студент</option>
+        <option value="anonymous" <%= actorType === 'anonymous' ? 'selected' : '' %>>Анонимный</option>
+      </select>
+      <select name="action">
+        <option value="">Все действия</option>
+        <% actionList.forEach((a) => { %>
+          <option value="<%= a.code %>" <%= action === a.code ? 'selected' : '' %>><%= a.label %></option>
+        <% }) %>
+      </select>
+      <select name="period">
+        <option value="all" <%= period === 'all' ? 'selected' : '' %>>Всё время</option>
+        <option value="today" <%= period === 'today' ? 'selected' : '' %>>Сегодня</option>
+        <option value="week" <%= period === 'week' ? 'selected' : '' %>>За неделю</option>
+        <option value="month" <%= period === 'month' ? 'selected' : '' %>>За месяц</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+      <% if (q || actorType !== 'all' || action || period !== 'all') { %>
+        <a href="/admin/audit" class="btn btn-ghost btn-sm">Сбросить</a>
+      <% } %>
+    </form>
+    <div class="card-header">
+      <h2>Записи (<%= total %><%= pages > 1 ? ', стр. ' + page + ' из ' + pages : '' %>)</h2>
+      <form method="POST" action="/admin/audit/cleanup" class="inline-form"
+        data-confirm="Удалить записи аудита старше указанного количества дней?"
+        data-confirm-ok-text="Очистить"
+        data-confirm-ok-class="danger">
+        <input type="number" name="days" min="1" max="36500" value="<%= auditRetentionDays %>"
+          class="inline-input inline-input-140" title="Сколько дней хранить">
+        <button type="submit" class="btn btn-danger btn-sm">Очистить старые</button>
+      </form>
+    </div>
+    <% if (rows.length === 0) { %>
+      <%- include('../../shared/ui/empty-state', {
+        primary: 'Журнал пуст или ничего не найдено по фильтрам.',
+        action: (q || actorType !== 'all' || action || period !== 'all')
+          ? { href: '/admin/audit', label: 'Сбросить фильтры' }
+          : null,
+        wrapper: false
+      }) %>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="th-160">Когда</th>
+              <th class="th-220">Актор</th>
+              <th>Действие</th>
+              <th class="th-160">Цель</th>
+              <th>Детали</th>
+              <th class="th-140">IP / UA</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((r) => { %>
+              <tr>
+                <td class="cell-secondary text-nowrap"><%= formatDate(r.created_at, true) %></td>
+                <td>
+                  <div class="cell-primary">
+                    <%= actorIcon[r.actor_type] || '•' %>
+                    <%= r.actor_name || '—' %>
+                  </div>
+                  <div class="cell-secondary">
+                    <%= actorLabel[r.actor_type] || r.actor_type %>
+                    <%= r.actor_id ? ' #' + r.actor_id : '' %>
+                  </div>
+                </td>
+                <td>
+                  <div class="cell-primary"><%= r.actionLabel %></div>
+                  <div class="cell-secondary"><code><%= r.action %></code></div>
+                </td>
+                <td class="cell-secondary">
+                  <% if (r.target_type) { %>
+                    <%= r.target_type %><%= r.target_id ? ' #' + r.target_id : '' %>
+                  <% } else { %>—<% } %>
+                </td>
+                <td>
+                  <% if (r.details) { %>
+                    <details>
+                      <summary class="cell-secondary clickable">Показать</summary>
+                      <pre class="audit-details-pre" style="margin: 4px 0 0; padding: 8px; background: var(--surface-2); border-radius: 6px; font-size: 11px; line-height: 1.4; overflow: auto; max-width: 24rem; max-height: 15rem;"><%= JSON.stringify(r.details, null, 2) %></pre>
+                    </details>
+                  <% } else { %>
+                    <span class="cell-secondary">—</span>
+                  <% } %>
+                </td>
+                <td class="cell-secondary text-nowrap">
+                  <div><%= r.ip || '—' %></div>
+                  <% if (r.user_agent) { %>
+                    <details>
+                      <summary class="cell-secondary clickable">UA</summary>
+                      <div style="margin-top: 4px; font-size: 11px; max-width: 17.5rem; overflow-wrap: anywhere;"><%= r.user_agent %></div>
+                    </details>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <%- include('../../shared/ui/paginator', {
+        page, pages, total,
+        urlFn: (p) => buildUrl('/admin/audit', baseQuery, { page: p > 1 ? p : '' })
+      }) %>
+    <% } %>
+  </section>
+</div>
+<%- include('../../layout/footer') %>

@@ -1,0 +1,10 @@
+<%
+  const _items = (typeof items !== 'undefined' && Array.isArray(items)) ? items : [];
+%>
+<% if (_items.length) { %>
+  <div class="filter-chips">
+    <% _items.forEach((it) => { %>
+      <a href="<%= it.href %>" class="chip <%= it.active ? 'active' : '' %>"><%= it.label %></a>
+    <% }) %>
+  </div>
+<% } %>

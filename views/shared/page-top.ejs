@@ -1,0 +1,58 @@
+<%
+  const _actions  = (typeof actions  !== 'undefined' && Array.isArray(actions))  ? actions  : [];
+  const _flashes  = (typeof flashes  !== 'undefined' && Array.isArray(flashes))  ? flashes  : [];
+  const _back     = (typeof back !== 'undefined' && back && back.href) ? back : null;
+  const _hasTitleHtml = (typeof titleHtml !== 'undefined') && !!titleHtml;
+
+  // Приоритет: topTitle (явный) → title (для совместимости с renderWith) → defaultTopBarTitle (из меню)
+  const _explicitTitle = (typeof topTitle !== 'undefined' && topTitle)
+    ? topTitle
+    : ((typeof title !== 'undefined' && title) ? title : '');
+  const _fallbackTitle = (typeof defaultTopBarTitle !== 'undefined' && defaultTopBarTitle)
+    ? defaultTopBarTitle
+    : '';
+  const _titleText = _explicitTitle || _fallbackTitle;
+
+  const _subtitle = (typeof subtitle !== 'undefined' && subtitle) ? subtitle : null;
+  const _hasBar = _hasTitleHtml || _titleText || _actions.length || _back;
+%>
+<% if (_hasBar) { %>
+<div class="top-bar">
+  <% if (_hasTitleHtml) { %>
+    <h1 class="top-bar-title"><%- sanitizeHtml(titleHtml) %></h1>
+  <% } else if (_titleText) { %>
+    <h1 class="top-bar-title">
+      <%= _titleText %>
+      <% if (_subtitle) { %><span class="cell-secondary page-subtitle"><%= _subtitle %></span><% } %>
+    </h1>
+  <% } %>
+  <% if (_actions.length || _back) { %>
+    <div class="top-bar-actions">
+      <% _actions.forEach((a) => { %>
+        <% if (a.href) { %>
+          <a href="<%= a.href %>" class="btn <%= a.class || 'btn-ghost btn-sm' %>"><%= a.label %></a>
+        <% } else if (a.form) { %>
+          <form method="<%= a.form.method || 'POST' %>" action="<%= a.form.action %>"
+                class="inline-form"
+                <% if (a.form.confirm) { %>data-confirm="<%= a.form.confirm %>"
+                   data-confirm-ok-text="<%= a.form.okText || '' %>"
+                   data-confirm-ok-class="<%= a.form.okClass || '' %>"<% } %>>
+            <% (a.form.hidden || []).forEach(([k, v]) => { %>
+              <input type="hidden" name="<%= k %>" value="<%= v %>">
+            <% }) %>
+            <button type="submit" class="btn <%= a.class || 'btn-ghost btn-sm' %>"><%= a.label %></button>
+          </form>
+        <% } %>
+      <% }) %>
+      <% if (_back) { %>
+        <a href="<%= _back.href %>" class="btn <%= _back.class || 'btn-ghost btn-sm' %>">
+          <%= _back.label || '← Назад' %>
+        </a>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+<% } %>
+<% _flashes.forEach((f) => { %>
+  <div class="info-box info-box-<%= f.type %>" role="status"><%- sanitizeHtml(String(f.text || '')) %></div>
+<% }) %>
