@@ -1,12 +1,1 @@
-node_modules/
-package-lock.json
-data/.session-secret
-.env
-*.db
-*.sqlite
-logs/
-data/
-demo/
-public/vendor/
-public/img/
-public/fonts/
+tmp-*
